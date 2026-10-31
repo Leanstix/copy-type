@@ -2,20 +2,10 @@
   "manifest_version": 3,
   "name": "CopyType — Delayed Code Entry",
   "short_name": "CopyType",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Queue text and enter it character by character into the field you choose.",
   "minimum_chrome_version": "118",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "debugger"
-  ],
-  "action": {
-    "default_title": "CopyType",
-    "default_popup": "popup.html"
-  },
-  "background": {
-    "service_worker": "background.js"
-  }
+  "permissions": ["activeTab", "scripting", "storage", "debugger"],
+  "action": { "default_title": "CopyType", "default_popup": "popup.html" },
+  "background": { "service_worker": "background.js" }
 }

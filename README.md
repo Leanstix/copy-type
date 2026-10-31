@@ -20,10 +20,16 @@ A lightweight Chrome/Chromium **Manifest V3** extension for manually queuing tex
 
 The popup estimates the total time before you start. Inputs under 1,800 characters target about 7.5 characters per second. From 1,800 characters upward, the default target is **around five minutes**, unless the input would require going faster than 12 characters/sec; then it takes longer. Individual delays vary modestly, including at newlines and punctuation.
 
-### Typing methods
+### Exact code-editor support
 
-- **Preserve formatting** uses Chrome's `Input.insertText` DevTools Protocol command one character at a time. This helps avoid editors automatically adding indentation, closing brackets, and other keystroke-triggered formatting. It is browser-generated text input, *not* literal hardware keyboard events.
-- **Keyboard events** emits Chrome DevTools `Input.dispatchKeyEvent` `keyDown`/`keyUp` pairs for printable US-layout ASCII. Tabs and unsupported Unicode characters use `Input.insertText`. Some web code editors automatically indent or auto-close brackets in this mode, so the resulting code may need checking.
+**New in v1.1.0:** CopyType detects Ace, CodeMirror 5/6, and Monaco when the page exposes a usable editor instance. It inserts characters into the editor's document model at the clicked caret position, avoiding automatic bracket pairs, indentation, and editor-typed formatting. When complete, it reads the editor document back and verifies the result against the exact source (normalizing CRLF). If a supported editor plugin changes the content, it repairs the document to the expected contents while keeping the original text outside the selected range. A verification error is displayed if that fails.
+
+Native editor APIs are not exposed by every site or editor version. **If exact editor support is unavailable, CopyType falls back to browser text input; that fallback is not guaranteed to reproduce the source exactly.** Review the resulting code before submitting. Chrome may still display the debugger notice; typing rate is unchanged.
+
+## Typing methods
+
+- **Exact editor mode** uses native document-model edits for recognized code editors; the Chrome `Input.insertText` DevTools Protocol command is used as a fallback. This is browser-generated input, *not* physical hardware keyboard input.
+- **Keyboard events** emits Chrome DevTools `Input.dispatchKeyEvent` `keyDown`/`keyUp` pairs for printable US-layout ASCII in ordinary text fields. In a detected IDE, CopyType automatically switches to exact native editing (or literal input as a fallback), because synthetic keys can trigger auto-indent and auto-closing.
 
 ### Permissions and privacy
 
@@ -35,7 +41,7 @@ The popup estimates the total time before you start. Inputs under 1,800 characte
 
 ## Development
 
-No build step or npm packages required. Run `npm test` and `npm run check` with Node.js 18+.
+No build step or npm packages required. Run `npm test` and `npm run check` with Node.js 18+. To test the editor bridge in headless Chrome with Playwright installed, run `python tests/browser_bridge.py`.
 
 ## Security
 

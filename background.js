@@ -23,6 +23,8 @@ async function arm(tabId, text, mode) {
   if (jobs.has(tabId)) throw new Error('Stop the running task before queuing another.');
   const tab = await chrome.tabs.get(tabId);
   if (!/^https?:\/\//.test(tab.url || '')) throw new Error('Only regular websites are supported.');
+  // MAIN world sees the editor's real API; isolated content scripts do not.
+  await chrome.scripting.executeScript({target:{tabId},files:['editor-bridge.js'],world:'MAIN'});
   await chrome.scripting.executeScript({target:{tabId},files:['content.js']});
   await chrome.storage.session.set({[keyForTab(tabId)]:{text,mode,created:Date.now()}});
   await ui(tabId,{type:'CT_ARMED'});
@@ -53,14 +55,14 @@ async function emitCharacter(tabId, char, mode) {
   await chrome.debugger.sendCommand(target,'Input.dispatchKeyEvent',{type:'keyUp',key:descriptor.key,code:descriptor.code,windowsVirtualKeyCode:descriptor.windowsVirtualKeyCode,modifiers:0});
 }
 
-async function start(tabId) {
+async function start(tabId, native, codeEditor) {
   if (jobs.has(tabId)) throw new Error('A task is already running in this tab.');
   const queued = (await chrome.storage.session.get(keyForTab(tabId)))[keyForTab(tabId)];
   if (!queued || Date.now() - queued.created > 15*60*1000) throw new Error('Queue expired. Open the popup and confirm again.');
   const chars = Array.from(queued.text.replace(/\r\n?/g,'\n'));
   const durationMs = CopyTypeTiming.secondsForCount(chars.length) * 1000;
   const delays = CopyTypeTiming.makeDelays(chars,durationMs);
-  const job = {chars,mode:queued.mode,delays,done:0,paused:false,cancelled:false,attached:false,finished:false};
+  const job = {chars,mode:queued.mode,native:!!native,codeEditor:!!codeEditor,delays,done:0,paused:false,cancelled:false,attached:false,finished:false};
   jobs.set(tabId,job);
   // The message resolves before the slow job finishes: popup/content script stay responsive.
   void (async () => {
@@ -71,14 +73,25 @@ async function start(tabId) {
         if (job.cancelled) break;
         while (job.paused && !job.cancelled) await sleep(90);
         if (job.cancelled) break;
-        await emitCharacter(tabId,chars[i],job.mode);
+        if (job.native) {
+          const result = await chrome.tabs.sendMessage(tabId,{type:'CT_EDITOR_APPEND',char:chars[i]});
+          if (!result?.ok) throw new Error(result?.error || 'Editor rejected input');
+        } else {
+          // In code editors without an accessible model, prefer insertText
+          // rather than key events, which trigger bracket/indent helpers.
+          await emitCharacter(tabId,chars[i],job.codeEditor?'literal':job.mode);
+        }
         job.done = i+1;
         if (job.done === chars.length || job.done % 30 === 0) {
           await ui(tabId,{type:'CT_PROGRESS',done:job.done,total:chars.length,percent:Math.round(100*job.done/chars.length)});
         }
         if (!job.cancelled) await sleep(delays[i]);
       }
-      await finish(tabId,job,job.cancelled?'cancelled':'done',job.cancelled?'Cancelled.':'Finished entering text.');
+      if (!job.cancelled && job.native) {
+        const verified=await chrome.tabs.sendMessage(tabId,{type:'CT_EDITOR_COMPLETE'});
+        if (!verified?.ok || !verified?.verified) throw new Error(verified?.error || 'Editor contents could not be verified');
+      }
+      await finish(tabId,job,job.cancelled?'cancelled':'done',job.cancelled?'Cancelled.':'Finished; editor content verified.');
     } catch (error) {
       await finish(tabId,job,'error',`Typing stopped: ${error.message || error}`);
     }
@@ -104,7 +117,7 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
   (async () => {
     if (message.type==='ARM') return arm(tabId,message.text,message.mode);
     if (message.type==='GET_STATE') return state(tabId);
-    if (message.type==='START') return start(tabId);
+    if (message.type==='START') return start(tabId, message.native, message.codeEditor);
     if (['CANCEL','PAUSE','RESUME'].includes(message.type)) return control(tabId,message.type);
     throw new Error('Unknown command.');
   })().then(sendResponse).catch(error => sendResponse(responseError(error)));
