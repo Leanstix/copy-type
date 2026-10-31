@@ -1,0 +1,11 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {keyDescriptor:key}=require('../keyboard.js');
+test('lowercase letters map to key events',()=>assert.deepEqual([key('a').code,key('a').modifiers],['KeyA',0]));
+test('uppercase letters include the shift modifier',()=>assert.equal(key('Z').modifiers,8));
+test('symbol mapping keeps brace and punctuation codes',()=>assert.deepEqual([key('{').code,key('{').modifiers],['BracketLeft',8]));
+test('digits have correct virtual key code',()=>assert.equal(key('7').windowsVirtualKeyCode,55));
+test('shifted digits map to their hardware position',()=>assert.equal(key('!').code,'Digit1'));
+test('newline is represented as Enter',()=>assert.equal(key('\n').key,'Enter'));
+test('non-ASCII and tabs use the literal-text fallback',()=>{ assert.equal(key('€'),null);assert.equal(key('\t'),null); });
+test('spaces are printable',()=>assert.equal(key(' ').code,'Space'));

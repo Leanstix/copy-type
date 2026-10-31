@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CopyType</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header><div class="logo">{&gt;}</div><div><h1>CopyType</h1><p>Write once. Type at your pace.</p></div></header>
+    <label for="source">Text or source code</label>
+    <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your code here…"></textarea>
+    <div class="stats"><span id="count">0 characters</span><span id="estimate">Estimated 0s</span></div>
+    <label class="select-label" for="mode">Typing method</label>
+    <select id="mode">
+      <option value="literal">Preserve formatting (recommended for code)</option>
+      <option value="keyboard">Keyboard events (may trigger auto-indent)</option>
+    </select>
+    <p class="hint">Long inputs target roughly 5 minutes; very large inputs take longer to keep a realistic pace.</p>
+    <div id="alert" role="status" aria-live="polite"></div>
+    <button id="confirm" disabled>Confirm · choose an editor</button>
+    <button id="cancel" class="secondary" hidden>Cancel current task</button>
+    <footer>Only operates in the tab you select. No remote services.</footer>
+  </main>
+  <script src="timing.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
