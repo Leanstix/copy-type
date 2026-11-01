@@ -1,0 +1,15 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {resolveInput, SHORTCUTS} = require('../browser-utils.js');
+test('empty input opens just the workspace', () => assert.equal(resolveInput('  '), null));
+test('search terms are escaped', () => assert.equal(resolveInput('C++ vector & maps'), 'https://www.google.com/search?q=C%2B%2B%20vector%20%26%20maps'));
+test('domain names gain https', () => assert.equal(resolveInput('chatgpt.com'), 'https://chatgpt.com/'));
+test('existing secure URLs are preserved', () => assert.equal(resolveInput('https://example.org/docs?a=b'), 'https://example.org/docs?a=b'));
+test('local development URLs work', () => assert.equal(resolveInput('http://localhost:3000/x'), 'http://localhost:3000/x'));
+test('javascript URLs are rejected', () => assert.throws(() => resolveInput('javascript:alert(1)'), /Only HTTP/));
+test('chrome and data URLs are rejected', () => { assert.throws(() => resolveInput('chrome://settings'), /Only HTTP/); assert.throws(() => resolveInput('data:text/html,hello'), /Only HTTP/); });
+test('URLs with credentials are rejected', () => assert.throws(() => resolveInput('https://user:pass@example.com/'), /unsafe/));
+test('too long inputs are rejected', () => assert.throws(() => resolveInput('a'.repeat(2049)), /too long/));
+test('shortcut targets are HTTPS', () => { for (const url of Object.values(SHORTCUTS)) assert.match(url, /^https:\/\//); });
+test('bare localhost port uses http for development', () => assert.equal(resolveInput('localhost:5173'), 'http://localhost:5173/'));
