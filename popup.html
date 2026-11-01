@@ -8,22 +8,47 @@
 </head>
 <body>
   <main>
-    <header><div class="logo">{&gt;}</div><div><h1>CopyType</h1><p>Write once. Type at your pace.</p></div></header>
-    <label for="source">Text or source code</label>
-    <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your code here…"></textarea>
-    <div class="stats"><span id="count">0 characters</span><span id="estimate">Estimated 0s</span></div>
-    <label class="select-label" for="mode">Typing method</label>
-    <select id="mode">
-      <option value="literal">Exact editor mode (recommended for code)</option>
-      <option value="keyboard">Keyboard events (regular fields only)</option>
-    </select>
-    <p class="hint">Long inputs target roughly 5 minutes; very large inputs take longer to keep a realistic pace.</p>
-    <div id="alert" role="status" aria-live="polite"></div>
-    <button id="confirm" disabled>Confirm · choose an editor</button>
-    <button id="cancel" class="secondary" hidden>Cancel current task</button>
-    <footer>Only operates in the tab you select. No remote services.</footer>
+    <header><div class="logo">&gt;_</div><div><h1>CopyType <span>1.2</span></h1><p>Code entry & browser workspace</p></div></header>
+    <nav class="switcher" aria-label="CopyType tools">
+      <button type="button" class="switch active" data-panel="typing" aria-selected="true">⌨ &nbsp; Type code</button>
+      <button type="button" class="switch" data-panel="browser" aria-selected="false">◎ &nbsp; Browser</button>
+    </nav>
+    <section id="typing-panel" class="panel">
+      <label for="source">Text or source code</label>
+      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your code here…"></textarea>
+      <div class="stats"><span id="count">0 characters</span><span id="estimate">Estimated 0s</span></div>
+      <label class="select-label" for="mode">Typing method</label>
+      <select id="mode">
+        <option value="literal">Exact editor mode (recommended for code)</option>
+        <option value="keyboard">Keyboard events (regular fields only)</option>
+      </select>
+      <p class="hint">Long inputs target approximately five minutes; very large inputs take longer.</p>
+      <div id="alert" role="status" aria-live="polite"></div>
+      <button id="confirm" disabled>Confirm · choose an editor</button>
+      <button id="cancel" class="secondary" hidden>Cancel current task</button>
+    </section>
+    <section id="browser-panel" class="panel" hidden>
+      <div class="browser-heading"><strong>Your mini browser</strong><span class="session-note">● Chrome session</span></div>
+      <p class="browser-description">Use your existing Chrome sign-ins, including ChatGPT. Opens a compact Chrome window with real tabs.</p>
+      <form id="browse-form">
+        <label for="browse-address">Search or enter a website</label>
+        <input id="browse-address" placeholder="chatgpt.com or search the web…" autocomplete="off" spellcheck="false" maxlength="2048">
+        <button id="browse-submit" type="submit">Open mini browser ↗</button>
+      </form>
+      <div class="quick-title">QUICK LAUNCH</div>
+      <div class="shortcuts">
+        <button type="button" data-quick="chatgpt">✳ &nbsp; ChatGPT</button>
+        <button type="button" data-quick="google">G &nbsp; Google</button>
+        <button type="button" data-quick="github">{ } &nbsp; GitHub</button>
+        <button type="button" data-quick="docs">&lt;/&gt; &nbsp; Docs</button>
+      </div>
+      <p id="browser-alert" role="status" aria-live="polite"></p>
+      <p class="browser-disclaimer">Browser pages stay in Chrome tabs, not embedded frames. CopyType does not access your passwords or cookies.</p>
+    </section>
+    <footer>Runs in your browser · No external CopyType servers</footer>
   </main>
   <script src="timing.js"></script>
+  <script src="browser-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
