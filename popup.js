@@ -44,3 +44,34 @@ cancel.addEventListener('click', async () => {
   catch (error) { $('alert').textContent = error.message; }
 });
 init();
+
+// Browser workspace runs separately from code entry, including on protected tabs.
+for (const tabButton of document.querySelectorAll('[data-panel]')) {
+  tabButton.addEventListener('click', () => {
+    for (const button of document.querySelectorAll('[data-panel]')) {
+      const active = button === tabButton;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+      $(button.dataset.panel + '-panel').hidden = !active;
+    }
+  });
+}
+async function launchWorkspace(input = '') {
+  const notice = $('browser-alert');
+  notice.textContent = '';
+  try {
+    CopyTypeBrowser.resolveInput(input); // reject invalid input before opening a window
+    const result = await send({type:'OPEN_WORKSPACE', input});
+    if (!result?.ok) throw new Error(result?.error || 'Could not open mini browser.');
+    window.close();
+  } catch (error) {
+    notice.textContent = error.message || 'Could not open mini browser.';
+  }
+}
+$('browse-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  void launchWorkspace($('browse-address').value);
+});
+for (const quick of document.querySelectorAll('[data-quick]')) {
+  quick.addEventListener('click', () => void launchWorkspace(CopyTypeBrowser.SHORTCUTS[quick.dataset.quick]));
+}
