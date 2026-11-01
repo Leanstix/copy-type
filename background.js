@@ -1,11 +1,42 @@
 /* Uses the Chrome DevTools Input domain only after explicit per-tab confirmation. */
 'use strict';
-importScripts('timing.js', 'keyboard.js');
+importScripts('timing.js', 'keyboard.js', 'browser-utils.js');
 const jobs = new Map();
 const keyForTab = (tabId) => `copytype:${tabId}`;
 const responseError = (error) => ({ok:false,error:error?.message || String(error)});
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const ui = async (tabId, payload) => { try { await chrome.tabs.sendMessage(tabId, payload); } catch (_) { /* page navigated */ } };
+
+const WORKSPACE_KEY = 'copytype:workspace-window';
+
+async function openWorkspace(input = '') {
+  const url = CopyTypeBrowser.resolveInput(input);
+  const saved = (await chrome.storage.session.get(WORKSPACE_KEY))[WORKSPACE_KEY];
+  let workspace = null;
+  if (Number.isSafeInteger(saved)) {
+    try {
+      workspace = await chrome.windows.get(saved);
+      if (workspace.type !== 'normal' || workspace.incognito) workspace = null;
+    } catch (_) { /* window was closed */ }
+  }
+  if (!workspace) {
+    // A real Chrome window shares this profile's sessions without reading cookies.
+    workspace = await chrome.windows.create({
+      type: 'normal', url: chrome.runtime.getURL('workspace.html'),
+      width: 980, height: 760, focused: true
+    });
+    if (!Number.isSafeInteger(workspace?.id)) throw new Error('Could not open workspace.');
+    await chrome.storage.session.set({[WORKSPACE_KEY]: workspace.id});
+    const homeTabId = workspace.tabs?.[0]?.id;
+    if (homeTabId) {
+      try { await chrome.tabs.update(homeTabId, {pinned: true}); } catch (_) { /* optional */ }
+    }
+  } else {
+    await chrome.windows.update(workspace.id, {focused: true});
+  }
+  if (url) await chrome.tabs.create({windowId: workspace.id, url, active: true});
+  return {ok: true, windowId: workspace.id};
+}
 
 async function state(tabId) {
   const job = jobs.get(tabId);
@@ -115,6 +146,10 @@ async function control(tabId, type) {
 chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
   const tabId = message.type==='ARM' || message.type==='GET_STATE' ? message.tabId : sender.tab?.id || message.tabId;
   (async () => {
+    if (message.type==='OPEN_WORKSPACE') {
+      if (!sender.url?.startsWith(chrome.runtime.getURL(''))) throw new Error('Workspace requests must come from CopyType.');
+      return openWorkspace(message.input || '');
+    }
     if (message.type==='ARM') return arm(tabId,message.text,message.mode);
     if (message.type==='GET_STATE') return state(tabId);
     if (message.type==='START') return start(tabId, message.native, message.codeEditor);
@@ -136,4 +171,11 @@ chrome.tabs.onUpdated.addListener((tabId,changeInfo) => {
     const job=jobs.get(tabId); if (job) {job.cancelled=true;job.paused=false;}
     void chrome.storage.session.remove(keyForTab(tabId));
   }
+});
+
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  try {
+    const saved = (await chrome.storage.session.get(WORKSPACE_KEY))[WORKSPACE_KEY];
+    if (saved === windowId) await chrome.storage.session.remove(WORKSPACE_KEY);
+  } catch (_) { /* service worker may be terminating */ }
 });
