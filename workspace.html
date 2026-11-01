@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CopyType Workspace</title>
+  <link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+  <div class="ambient ambient-left" aria-hidden="true"></div><div class="ambient ambient-right" aria-hidden="true"></div>
+  <main class="dashboard">
+    <header class="topbar"><div class="brand"><span class="brand-mark">&gt;_</span><span>CopyType <strong>Workspace</strong></span></div><span class="session-pill"><span class="dot"></span> Your Chrome profile</span></header>
+    <section class="hero">
+      <div class="eyebrow">PERSONAL WORKSPACE · NO EXTRA SIGN-IN</div>
+      <h1>Your browser, <span>within reach.</span></h1>
+      <p>Search the web or open a site in another tab of this compact Chrome window. Your usual browser cookies and signed-in sessions remain in Chrome.</p>
+      <form id="search-form" novalidate>
+        <label class="sr-only" for="address">Search or enter a website URL</label>
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="address" type="text" autocomplete="off" spellcheck="false" placeholder="Search anything or enter a URL…" maxlength="2048" autofocus>
+        <button type="submit">Go <span aria-hidden="true">↗</span></button>
+      </form>
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+    </section>
+    <section class="apps" aria-label="Quick launch">
+      <div class="section-heading"><h2>Quick launch</h2><span>Your frequently used destinations</span></div>
+      <div class="app-grid">
+        <button class="app-card" data-site="chatgpt" type="button"><span class="app-icon chatgpt">✳</span><span><strong>ChatGPT</strong><small>Continue your conversations</small></span><span class="arrow">↗</span></button>
+        <button class="app-card" data-site="google" type="button"><span class="app-icon google">G</span><span><strong>Google</strong><small>Explore the web</small></span><span class="arrow">↗</span></button>
+        <button class="app-card" data-site="github" type="button"><span class="app-icon github">{ }</span><span><strong>GitHub</strong><small>Repositories and code</small></span><span class="arrow">↗</span></button>
+        <button class="app-card" data-site="docs" type="button"><span class="app-icon docs">&lt;/&gt;</span><span><strong>Web Docs</strong><small>Developer references</small></span><span class="arrow">↗</span></button>
+      </div>
+    </section>
+    <footer><span>Pages open as regular Chrome tabs in this window.</span><span>No credential reading, cookie copying, or webpage embedding.</span></footer>
+  </main>
+  <script src="browser-utils.js"></script>
+  <script src="workspace.js"></script>
+</body>
+</html>
