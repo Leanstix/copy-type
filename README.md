@@ -26,18 +26,19 @@ The popup estimates the total time before you start. Inputs under 1,800 characte
 
 Native editor APIs are not exposed by every site or editor version. **If exact editor support is unavailable, CopyType falls back to browser text input; that fallback is not guaranteed to reproduce the source exactly.** Review the resulting code before submitting. Chrome may still display the debugger notice; typing rate is unchanged.
 
-## Compact browser workspace (v1.2.0)
+## In-extension browser preview (v1.3.0)
 
-1. Click the CopyType toolbar icon and select **Browser**.
-2. Enter a website or search query, or choose **ChatGPT**, **Google**, **GitHub**, or **Web Docs**.
-3. CopyType launches or focuses a compact, normal **Chrome window** with a pinned workspace home tab. Your requested page opens as a normal additional tab, with Chrome's real navigation, browser security rules, and active profile sessions.
-4. You can return to the pinned CopyType Workspace tab to search again. Each destination opens in a new tab in the same window.
+1. Click the CopyType icon, then choose **Browser**.
+2. Enter a website or search query, or use the ChatGPT/GitHub/Google/Docs shortcuts.
+3. The webpage **appears inside the CopyType popup**, with click, scroll, back, forward, reload and basic text-entry controls.
+4. Click an input field in the preview, use **Type** below the preview to send text, and use **↵** to submit.
+5. **Close browser** detaches the debugger and removes CopyType's background tab.
 
-**Sign-in continuity:** The compact window belongs to the same standard browser profile as the extension, so existing website cookies/sessions are used by Chrome automatically. No login tokens, cookies, passwords, or browser history are read, exported, or stored by CopyType. Different profiles and incognito contexts have separate sessions.
+**Implementation:** This is a tab-backed browser preview, *not* an iframe. Chrome creates **one inactive tab in the current browser window** and renders that page inside the extension via the Chrome DevTools `Page.captureScreenshot` command. The same tab is reused for navigation; **no new browser window is opened**. Chrome will show the background tab in the tab strip, and may show a browser debugging notice while it is attached. Refreshing is approximately every 1.8 seconds, so animations may look choppy. Some sites, DRM surfaces, authentication redirects, unusual frame layouts, and background tab rendering may not display or interact correctly.
 
-**Why not embed ChatGPT in a frame?** Most major websites control or restrict cross-origin framing with `X-Frame-Options`/Content Security Policy. A real Chrome window supports website logins, authentication redirects, and normal navigation without trying to bypass those security policies. This is a compact normal browser window, **not an iframe-based full browser inside the extension popup**.
+**Sessions:** Since the actual destination is a regular page in your existing Chrome profile, the browser handles cookies and sign-ins directly. The extension neither reads nor exports sign-in cookies, passwords, or tokens. The preview may display sensitive account information on screen; it remains inside the local browser interface and is never transmitted to a CopyType service. Different Chrome profiles and incognito contexts remain separate.
 
-**Screen capture:** CopyType does not attempt to conceal webpages or windows from screen capture, screen sharing, proctoring, monitoring, or remote-control software. Chrome extensions cannot promise universal capture exclusion. You control which windows or tabs you share using the screen-sharing software's own selection controls. This feature has no access to recording APIs.
+**Screen capture:** The extension **does not hide itself or its preview from full-screen recordings or sharing**. Chrome extensions do not have a supported API to exclude a chosen popup from other applications' whole-display capture. A tab/window-specific share is a privacy-respecting option when you want to keep unrelated activity out of the shared view. There is no recorder evasion or monitoring bypass mechanism here.
 
 ## Typing methods
 
@@ -48,8 +49,8 @@ Native editor APIs are not exposed by every site or editor version. **If exact e
 
 - `activeTab` / `scripting`: install the small click detector only after you activate the extension, and only in that tab.
 - `debugger`: ask Chrome to deliver text/key events at the browser input layer. Chrome **shows an "is debugging this browser" notice** while this permission is in use. Chrome DevTools can interrupt the session. The extension detaches after completion/cancellation.
-- `storage`: hold one queued code sample temporarily in **session storage** until it is entered or cancelled, and remember the compact workspace window ID for reuse. No data is sent to a server or persisted in `sync` / `local` storage.
-- No `cookies`, `history`, `<all_urls>`, screen capture, or extra host permissions are requested. The browser window uses existing Chrome cookies natively.
+- `storage`: hold one queued code sample temporarily in **session storage** until it is entered or cancelled, and store browser preview state only in memory. No data is sent to a server or persisted in `sync` / `local` storage.
+- No `cookies`, `history`, `<all_urls>`, screen capture, or extra host permissions are requested. The background Chrome tab uses existing Chrome cookies natively.
 
 **Code-entry limitations:** Only ordinary HTTP(S) pages. No `chrome://` pages, Chrome Web Store pages, PDF viewers, or browser-protected pages. Some sandboxed/cross-origin iframes and web applications with custom input handling may not work. A website can detect or block automated input; this extension does not guarantee that any page will accept the result. Code-entry accuracy should be verified before submission. Do not use it where contest or site rules prohibit automated input.
 
