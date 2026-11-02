@@ -1,0 +1,14 @@
+{
+ "name":"copytype-mini-browser",
+ "version":"0.1.0",
+ "private":true,
+ "description":"Standalone browser workspace for CopyType with persistent private sessions",
+ "main":"main.cjs",
+ "scripts":{
+  "start":"electron .",
+  "test":"node --test tests/*.test.cjs",
+  "check":"node --check main.cjs && node --check preload.cjs && node --check navigation.cjs && node --check tab-state.cjs && node --check renderer.js"
+ },
+ "devDependencies":{"electron":"45.2.1"},
+ "engines":{"node":">=20"}
+}
