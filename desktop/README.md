@@ -12,6 +12,20 @@ bash desktop/start-linux.sh
 
 Or run `cd desktop && npm install && npm start` manually. The first installation downloads Electron, so internet is required. A lightweight interface does not make Electron a tiny binary: Chromium can use significant memory on demanding sites.
 
+### Linux sandbox setup
+
+The launcher detects a missing or misconfigured Electron `chrome-sandbox` helper and asks for a one-time sudo approval in an interactive terminal. It changes **only** `desktop/node_modules/electron/dist/chrome-sandbox` to root ownership and mode `4755`, and keeps Chromium sandboxing enabled.
+
+If you prefer to do it manually, run from the `desktop` directory:
+
+```bash
+sudo chown root:root node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+npm start
+```
+
+Only approve this after installing Electron from a source you trust. Reinstalling Electron may reset these permissions. On a `nosuid` filesystem or a Linux system with additional security restrictions, mode changes might not be sufficient. **Do not use `--no-sandbox` for a browser displaying external websites.**
+
 ## Browser features
 
 - An address bar, Google search, back/forward/reload and up to six internal tabs.
