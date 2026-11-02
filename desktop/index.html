@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self';">
+<title>CopyType Mini Browser</title>
+<link href="styles.css" rel="stylesheet">
+</head>
+<body>
+<header>
+<div id="tabs" role="tablist" aria-label="Website tabs"></div>
+<button id="newTab" class="tab-add" title="New tab (Ctrl+T)" aria-label="New tab">+</button>
+<div class="toolbar">
+<button id="back" title="Back" aria-label="Back">‹</button>
+<button id="forward" title="Forward" aria-label="Forward">›</button>
+<button id="reload" title="Reload" aria-label="Reload">↻</button>
+<form id="addressForm" autocomplete="off">
+<span class="secure" aria-hidden="true">⌕</span>
+<input id="address" type="text" aria-label="Address or search" placeholder="Search or enter a URL" spellcheck="false" autocomplete="off">
+<button type="submit" class="go">Go</button>
+</form>
+</div>
+<div class="shortcuts">
+<span class="wordmark">CopyType <strong>mini</strong></span>
+<button class="shortcut" data-url="https://chatgpt.com">ChatGPT</button>
+<button class="shortcut" data-url="https://www.google.com">Google</button>
+<button class="shortcut" data-url="https://github.com">GitHub</button>
+<button class="shortcut" data-url="https://developer.mozilla.org">Docs</button>
+<span class="profile" title="Sign-ins are stored locally in this app, separate from Brave">Private profile · log in once</span>
+</div>
+</header>
+<div id="alert" role="status" aria-live="polite"></div>
+<script src="renderer.js"></script>
+</body>
+</html>
