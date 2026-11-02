@@ -1,0 +1,22 @@
+:root{color-scheme:dark;font:13px/1.35 system-ui,-apple-system,'Segoe UI',sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0b1020;color:#e9ecfa}
+header{height:126px;background:#10192b;display:flex;flex-wrap:wrap;align-content:start;border-bottom:1px solid #293348;box-shadow:0 1px 10px #0006}
+#tabs{height:38px;display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:thin;padding:5px 6px}
+.tab{height:28px;max-width:184px;min-width:78px;display:flex;align-items:center;gap:6px;border:1px solid #2a3950;background:#1a263b;border-radius:8px;padding:0 7px;cursor:pointer;color:#c0cbe0}
+.tab.active{background:#34466b;border-color:#6175a2;color:#fff}.tab .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.tab .close{border:0;background:transparent;color:#a9b6d0;border-radius:4px;font-size:16px;line-height:1;padding:2px;cursor:pointer}
+.tab .close:hover{color:white;background:#ffffff24}button{font:inherit;color:inherit;cursor:pointer}
+.tab-add{width:28px;height:28px;margin:5px 9px 5px 0;border:1px solid #32415c;background:#26344d;border-radius:7px;font-size:17px}
+.toolbar{width:100%;height:47px;display:flex;align-items:center;gap:7px;padding:5px 11px}
+.toolbar>button{width:33px;height:33px;background:#202d46;border:1px solid #34435d;border-radius:8px;font-size:22px}
+.toolbar>button:disabled{opacity:.45;cursor:default}
+#addressForm{height:35px;display:flex;align-items:center;gap:8px;flex:1;border:1px solid #394968;background:#0e1626;border-radius:10px;padding:0 7px 0 10px}
+.secure{font-size:19px;color:#8a9abc}#address{min-width:0;flex:1;border:0;outline:0;background:none;color:#fff;font:13px/1.5 ui-monospace,monospace}
+#addressForm:focus-within{border-color:#7a8af9;box-shadow:0 0 0 2px #7581ef33}
+.go{border:0;background:#6b73dc;padding:5px 11px;border-radius:6px}
+.shortcuts{width:100%;height:41px;display:flex;align-items:center;gap:5px;padding:0 11px}
+.wordmark{font-size:12px;font-weight:800;margin-right:11px;white-space:nowrap}.wordmark strong{color:#98a7ff}
+.shortcut{background:#1b2940;color:#cfddf5;border:1px solid #2c3d5a;border-radius:6px;font-size:11px;padding:5px 9px}
+.shortcut:hover{background:#2b3d60}.profile{margin-left:auto;color:#8392ae;font-size:10px;white-space:nowrap}
+#alert{position:fixed;right:14px;top:138px;z-index:5;max-width:350px;background:#592735;color:#ffe5e5;border:1px solid #aa5566;border-radius:8px;padding:10px 12px;box-shadow:0 3px 16px #0008;display:none}
+#alert.visible{display:block}
