@@ -1,11 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "CopyType — Delayed Code Entry",
+  "name": "CopyType \u2014 Code Entry & In-Extension Browser",
   "short_name": "CopyType",
-  "version": "1.2.0",
-  "description": "Accurate code entry and a compact same-profile browser workspace.",
+  "version": "1.3.0",
+  "description": "Code entry and an in-extension browser viewer backed by your Chrome profile.",
   "minimum_chrome_version": "118",
-  "permissions": ["activeTab", "scripting", "storage", "debugger"],
-  "action": { "default_title": "CopyType", "default_popup": "popup.html" },
-  "background": { "service_worker": "background.js" }
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "debugger"
+  ],
+  "action": {
+    "default_title": "CopyType \u2014 code & browser",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
 }
