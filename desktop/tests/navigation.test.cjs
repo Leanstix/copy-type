@@ -1,0 +1,15 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {resolveInput,validateURL,MAX_INPUT}=require('../navigation.cjs');
+test('domain maps to HTTPS',()=>assert.equal(resolveInput('chatgpt.com'),'https://chatgpt.com/'));
+test('full URL keeps path and query',()=>assert.equal(resolveInput('https://example.com/x?q=y'),'https://example.com/x?q=y'));
+test('search terms are encoded',()=>assert.equal(resolveInput('c++ io'),'https://www.google.com/search?q=c%2B%2B%20io'));
+test('localhost uses HTTP',()=>assert.equal(resolveInput('localhost:3000/test'),'http://localhost:3000/test'));
+test('empty query rejected',()=>assert.throws(()=>resolveInput(' ')));
+test('oversized query rejected',()=>assert.throws(()=>resolveInput('x'.repeat(MAX_INPUT+1))));
+test('javascript scheme rejected',()=>assert.throws(()=>resolveInput('javascript:alert(1)')));
+test('local file scheme rejected',()=>assert.throws(()=>resolveInput('file:///tmp/x')));
+test('internal Brave pages rejected',()=>assert.throws(()=>resolveInput('brave://extensions')));
+test('data URL rejected',()=>assert.throws(()=>resolveInput('data:text/html,x')));
+test('embedded credentials rejected',()=>assert.throws(()=>validateURL('https://a:b@example.com/')));
+test('HTTPS case insensitive',()=>assert.equal(resolveInput('HTTPS://Example.com'),'https://example.com/'));
