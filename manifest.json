@@ -3,7 +3,7 @@
   "name": "CopyType \u2014 Code Entry & In-Extension Browser",
   "short_name": "CopyType",
   "version": "1.3.0",
-  "description": "Code entry and an in-extension browser viewer backed by your Chrome profile.",
+  "description": "Code entry and an in-extension browser viewer backed by your Brave/Chromium profile.",
   "minimum_chrome_version": "118",
   "permissions": [
     "activeTab",
