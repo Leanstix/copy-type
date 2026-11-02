@@ -1,5 +1,19 @@
 # CopyType — delayed code entry
 
+## CopyType Mini Browser — standalone companion
+
+A separate mini-browser now lives in [`desktop/`](desktop/README.md). Unlike the browser preview in this Brave extension, it opens websites **inside its own application window** (not a hidden or extra Brave tab). Its independent browser profile keeps sign-ins after you restart it.
+
+On Linux, with Node.js 20+ and npm installed:
+
+```bash
+bash desktop/start-linux.sh
+```
+
+The first run installs Electron, so internet access is needed. The mini-browser uses Chromium and is not a tiny executable; embedded site authentication (especially Google OAuth) is not universally supported. **It is visible during whole-screen recording and sharing.** See [desktop documentation](desktop/README.md) for limitations.
+
+---
+
 A private, local-first Brave/Chromium **Manifest V3** extension for manually queuing text and entering it gradually into a selected webpage editor. No backend, accounts, analytics, or external dependencies.
 
 ## Install (developer mode)
