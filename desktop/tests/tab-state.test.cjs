@@ -1,0 +1,13 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {makeTabState,MAX_TABS}=require('../tab-state.cjs');
+test('first tab active',()=>{const s=makeTabState(),a=s.add();assert.equal(s.activeId,a);});
+test('new tab active',()=>{const s=makeTabState();s.add();const a=s.add();assert.equal(s.activeId,a);});
+test('activation retains order',()=>{const s=makeTabState(),a=s.add(),b=s.add();s.activate(a);assert.deepEqual(s.ids,[a,b]);});
+test('closing inactive tab retains active',()=>{const s=makeTabState(),a=s.add(),b=s.add();s.close(a);assert.equal(s.activeId,b);});
+test('closing active picks neighbor',()=>{const s=makeTabState(),a=s.add(),b=s.add();s.close(b);assert.equal(s.activeId,a);});
+test('closing last tab gives null',()=>{const s=makeTabState(),a=s.add();s.close(a);assert.equal(s.activeId,null);});
+test('unknown activation rejected',()=>assert.throws(()=>makeTabState().activate(3)));
+test('unknown closure rejected',()=>assert.throws(()=>makeTabState().close(3)));
+test('tab cap enforced',()=>{const s=makeTabState();for(let i=0;i<MAX_TABS;i++)s.add();assert.throws(()=>s.add());});
+test('tab IDs do not repeat',()=>{const s=makeTabState(),a=s.add();s.close(a);assert.notEqual(s.add(),a);});
