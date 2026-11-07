@@ -7,6 +7,9 @@ function protectCopyType(window) {
     throw new Error('KWin does not support window capture exclusion.');
   }
   window.excludeFromCapture = true;
+  window.skipTaskbar = true;
+  window.skipSwitcher = true;
+  window.skipPager = true;
   print('CopyType capture exclusion applied to PID ' + copyTypePid);
 }
 workspace.windowAdded.connect(protectCopyType);

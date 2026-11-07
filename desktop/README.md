@@ -2,6 +2,20 @@
 
 A standalone one-window browser workspace alongside the existing Brave extension. Websites are rendered inside this application, **not in a Brave tab**.
 
+## Type into VS Code, browser editors, and desktop fields
+
+Open **Type text** in the browser toolbar. Choose a destination, paste the source, choose a pace, and press **Start typing**. The selected document or field stays pinned when you change windows or browser tabs. Pause, resume, and cancel are available in the panel. Cancel preserves text already entered. Paste another sample after completion to continue at the inserted text's end.
+
+For **VS Code**, install the bundled [editor connection](vscode/README.md), place the cursor or select a range in the destination file, and run **CopyType: Use This Editor** in VS Code's Command Palette. Choose that file in CopyType's destination list. The selected document remains the destination even when another file is active. The integration does not save or submit files automatically. It supports local VS Code extension hosts, including unsaved documents, with one cursor/selection. LF/CRLF follows the document's line-ending convention.
+
+For the **mini browser**, open the target page, click **Select browser editor**, and click the destination field. Supported destinations include text inputs, text areas, and exposed Ace, CodeMirror, and Monaco editor models. Cross-origin iframe editors and editors with no accessible model are not guaranteed. Password fields are excluded. The desktop app rejects an unsupported exact editor instead of claiming that synthetic keystrokes preserve formatting.
+
+For **other desktop applications**, click **Desktop fields** and choose the application/window/field from the list. This uses Linux's AT-SPI editable-text interface; applications that do not expose an editable field require a dedicated integration. This is not universal input injection into every window. Install `python3-gi` and `gir1.2-atspi-2.0` if accessibility support is missing. Browser accessibility settings and individual toolkit versions affect which fields are available.
+
+All three paths edit a pinned destination directly. They avoid keyboard-triggered bracket pairing and indentation without changing your IDE's global settings. Other plugins, manual edits, or format-on-save can still change a document: CopyType checks its expected text and stops on a mismatch, keeping those changes rather than overwriting the document to repair it. Destination text is verified at completion; check the final result before using it.
+
+Source text is held in memory. The VS Code connection uses a user-owned Unix socket and a mode-600 authentication descriptor, with no network listener. Desktop discovery lists accessible application/field labels; only a selected field's text is read locally to preserve the surrounding contents and verify edits.
+
 ## Linux launch
 
 Install Node.js 20+ and npm, then run from the repository root:
@@ -58,6 +72,17 @@ The nested-KWin tests showed both a synthetic private window and the actual Copy
 
 The browser's typed output remains part of the destination page and can appear in recordings of that page.
 
+The private launcher also excludes its native window from the taskbar, Alt+Tab switcher, and pager. Press **Ctrl+Alt+Space** to show or hide CopyType, and **Ctrl+Alt+Backspace** to cancel typing from another application. These private-mode bindings use KWin's native global shortcut service through a local Python/GI D-Bus connection, rather than Electron's shortcut registration. Startup verifies that KDE assigned both advertised key combinations before opening the private window. Shortcuts are registered after the single-instance lock is acquired and are removed when the app exits. Restoring also unminimizes the window. If another application owns either combination, startup explains which binding needs attention in KDE's shortcut settings.
+
+If CopyType is hidden and you need a recovery option, run the same launcher again: the existing instance is shown and focused. These desktop presentation settings do not remove the running process from system tools or guarantee exclusion from every overview/thumbnail/capture path.
+
 ## Tests
 
-`npm test` for Node unit tests; `npm run check` for JS syntax; `python tests/browser-ui.py` for optional Playwright UI smoke checks.
+`npm test` for Node unit tests; `npm run check` for JS syntax; `npm run check:linux` for launcher syntax. The Unix-socket test requires permission to bind a local socket.
+
+Optional live checks use disposable profiles and fixtures:
+
+- Run `tests/electron-typing.cjs` or `tests/main-integration.cjs` with the installed Electron executable, with `ELECTRON_RUN_AS_NODE` unset and a separate `--user-data-dir`.
+- Run `/usr/bin/python3 tests/accessibility-integration.py` for a native GTK background-field check.
+- Run `/usr/bin/python3 tests/kde-window-integration.py` in a KDE Wayland session to inspect a disposable private instance's window properties.
+- Load `vscode/integration.cjs` with VS Code's `--extensionTestsPath` and `vscode/` as `--extensionDevelopmentPath`, using a separate user profile, extension directory, and `COPYTYPE_RUNTIME_DIR`.

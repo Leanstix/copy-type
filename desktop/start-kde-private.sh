@@ -2,6 +2,7 @@
 # Exclude this instance's native windows from KDE's supported screencasts.
 set -euo pipefail
 unset ELECTRON_RUN_AS_NODE
+export COPYTYPE_PRIVATE=1
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 if [[ "${XDG_SESSION_TYPE:-}" != wayland || ":${XDG_CURRENT_DESKTOP:-}:" != *:KDE:* ]]; then
@@ -44,7 +45,7 @@ mkfifo "$probe_dir/start"
 
 # Keep the PID stable through exec, and install the window rule before Electron
 # can create its first window. Each launch only matches its own process.
-bash -c 'read -r < "$1"; exec ./node_modules/electron/dist/electron . --ozone-platform=wayland' _ "$probe_dir/start" &
+bash -c 'gate=$1; shift; read -r < "$gate"; exec ./node_modules/electron/dist/electron . --ozone-platform=wayland "$@"' _ "$probe_dir/start" "$@" &
 app_pid=$!
 sed "s/__COPYTYPE_PID__/$app_pid/g" kde-exclude.js > "$probe_dir/exclude.js"
 script_id=$(qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript "$probe_dir/exclude.js" "$script_name")

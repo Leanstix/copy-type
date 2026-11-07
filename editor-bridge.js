@@ -176,6 +176,7 @@
   }
 
   const api = { findAdapter, makeSession };
+  root.CopyTypeEditorAdapters = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (!root.addEventListener || !root.document) return;
   // Re-injecting a MAIN-world file when arming another task must not stack listeners.

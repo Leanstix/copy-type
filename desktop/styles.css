@@ -20,3 +20,13 @@ header{height:126px;background:#10192b;display:flex;flex-wrap:wrap;align-content
 .shortcut:hover{background:#2b3d60}.profile{margin-left:auto;color:#8392ae;font-size:10px;white-space:nowrap}
 #alert{position:fixed;right:14px;top:138px;z-index:5;max-width:350px;background:#592735;color:#ffe5e5;border:1px solid #aa5566;border-radius:8px;padding:10px 12px;box-shadow:0 3px 16px #0008;display:none}
 #alert.visible{display:block}
+[hidden]{display:none!important}.primary{background:#555fc7;border-color:#8289fa;margin-left:auto}.profile{margin-left:8px}
+#typingPanel{position:absolute;right:0;top:126px;bottom:0;width:360px;padding:18px;background:#121d31;border-left:1px solid #34435d;overflow-y:auto}
+.panel-heading{display:flex;align-items:center;justify-content:space-between}h1{font-size:18px;margin:0 0 6px}.panel-heading button{background:none;border:0;font-size:24px;color:#aebdd6}
+.hint{color:#a0afc8;font-size:12px;line-height:1.5;margin:9px 0 14px}.hint strong{color:#d8e3f5;font-weight:500}
+#typingPanel label{display:block;font-weight:600;margin:12px 0 7px}select,textarea,#rate{background:#0b1424;color:#edf3ff;border:1px solid #3c4b66;border-radius:8px;font:inherit;padding:9px;width:100%}
+#source{height:180px;resize:vertical;font:12px/1.5 ui-monospace,monospace;tab-size:4}#destination{font-size:12px}
+.target-actions,.typing-actions{display:flex;gap:7px;margin-top:9px}.target-actions button,.typing-actions button{flex:1;background:#263650;color:#e0e9fb;border:1px solid #405172;padding:8px;border-radius:7px;font-size:12px}
+.pace{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.pace label{margin:0!important;font-size:12px}#rate{width:76px}
+.start{width:100%;padding:11px;border:0;border-radius:8px;background:#737cec;color:white;font-weight:700}button:disabled{opacity:.45;cursor:default}
+#typingProgress{width:100%;height:7px;margin-top:17px;accent-color:#8e99ff}#typingStatus{font-size:12px;line-height:1.5;color:#dbe6fd;overflow-wrap:anywhere}

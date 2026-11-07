@@ -27,9 +27,27 @@
 <button class="shortcut" data-url="https://www.google.com">Google</button>
 <button class="shortcut" data-url="https://github.com">GitHub</button>
 <button class="shortcut" data-url="https://developer.mozilla.org">Docs</button>
-<span class="profile" title="Sign-ins are stored locally in this app, separate from Brave">Private profile · log in once</span>
+<button id="toggleTyping" class="shortcut primary">Type text</button>
+<span class="profile">Show / hide: Ctrl+Alt+Space</span>
 </div>
 </header>
+<aside id="typingPanel" hidden aria-label="CopyType text entry">
+<div class="panel-heading"><h1>Type into an editor</h1><button id="closeTyping" aria-label="Close typing panel">×</button></div>
+<p class="hint">Choose a destination, paste your text, then start. You can keep browsing while it types.</p>
+<label for="destination">Destination</label>
+<select id="destination"><option value="">Choose an editor…</option></select>
+<div class="target-actions"><button id="selectBrowser">Select browser editor</button><button id="refreshDesktop">Desktop fields</button></div>
+<p class="hint">For VS Code: place the cursor in a file, then run <strong>CopyType: Use This Editor</strong> from its Command Palette. The file will appear above.</p>
+<label for="source">Text to enter</label>
+<textarea id="source" spellcheck="false" placeholder="Paste your text or code here…"></textarea>
+<div class="pace"><label for="rate">Characters / second</label><input id="rate" type="number" min="1" max="60" step="0.5" value="7.5"></div>
+<p id="estimate" class="hint">0 characters</p>
+<button id="startTyping" class="start">Start typing</button>
+<div class="typing-actions"><button id="pauseTyping" disabled>Pause</button><button id="cancelTyping" disabled>Cancel</button></div>
+<progress id="typingProgress" value="0" max="1"></progress>
+<p id="typingStatus" role="status" aria-live="polite">Choose a destination to begin.</p>
+<p class="hint">Exact editing bypasses automatic indentation and bracket pairing. If the destination changes unexpectedly, typing stops. Emergency cancel: <strong>Ctrl+Alt+Backspace</strong>.</p>
+</aside>
 <div id="alert" role="status" aria-live="polite"></div>
 <script src="renderer.js"></script>
 </body>
