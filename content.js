@@ -95,9 +95,8 @@
       event.preventDefault();event.stopImmediatePropagation();send('CANCEL');
     }
   },true);
-  document.addEventListener('visibilitychange',() => {
-    if(document.hidden && status==='typing') send('PAUSE');
-  });
+  // Switching tabs leaves this job running in its original tab. The worker
+  // targets that tab ID; visibility is not a request to pause the job.
   chrome.runtime.onMessage.addListener((payload, sender, sendResponse) => {
     if (payload.type==='CT_ARMED') { selectionRoot=null;progress && (progress.value=0);show('armed'); }
     if (payload.type==='CT_STATE') {

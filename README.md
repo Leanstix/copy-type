@@ -32,6 +32,8 @@ A private, local-first Brave/Chromium **Manifest V3** extension for manually que
 4. Press **Confirm**, then click in the editor where you want the code inserted. Typing starts at the current cursor position.
 5. Use the floating widget to **Pause**, **Resume**, or **Cancel**. **Esc** also cancels.
 
+After selecting the editor and starting, you can switch to another tab; CopyType continues targeting the original tab. Return to that tab to pause or cancel. Keep the target page open: navigating or closing it stops the task. Moving focus to another field within the target page cancels typing to avoid entering text into the wrong field. Background pages and some editors may throttle or reject input, so verify the result on your actual site.
+
 The popup estimates the total time before you start. Inputs under 1,800 characters target about 7.5 characters per second. From 1,800 characters upward, the default target is **around five minutes**, unless the input would require going faster than 12 characters/sec; then it takes longer. Individual delays vary modestly, including at newlines and punctuation.
 
 ### Exact code-editor support

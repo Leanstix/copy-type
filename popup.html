@@ -1,68 +1,153 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CopyType</title>
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <main>
-    <header><div class="logo">&gt;_</div><div><h1>CopyType <span>1.3</span></h1><p>Code entry & browser workspace</p></div></header>
-    <nav class="switcher" aria-label="CopyType tools">
-      <button type="button" class="switch active" data-panel="typing" aria-selected="true">⌨ &nbsp; Type code</button>
-      <button type="button" class="switch" data-panel="browser" aria-selected="false">◎ &nbsp; Browser</button>
-    </nav>
-    <section id="typing-panel" class="panel">
-      <label for="source">Text or source code</label>
-      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Paste your code here…"></textarea>
-      <div class="stats"><span id="count">0 characters</span><span id="estimate">Estimated 0s</span></div>
-      <label class="select-label" for="mode">Typing method</label>
-      <select id="mode">
-        <option value="literal">Exact editor mode (recommended for code)</option>
-        <option value="keyboard">Keyboard events (regular fields only)</option>
-      </select>
-      <p class="hint">Long inputs target approximately five minutes; very large inputs take longer.</p>
-      <div id="alert" role="status" aria-live="polite"></div>
-      <button id="confirm" disabled>Confirm · choose an editor</button>
-      <button id="cancel" class="secondary" hidden>Cancel current task</button>
-    </section>
-    <section id="browser-panel" class="panel" hidden>
-      <div class="browser-heading"><strong>In-extension browser</strong><span class="session-note">● Current browser profile</span></div>
-      <form id="browse-form" class="browser-bar">
-        <label class="sr-only" for="browse-address">Address or search query</label>
-        <input id="browse-address" placeholder="chatgpt.com or search the web…" autocomplete="off" spellcheck="false" maxlength="2048">
-        <button id="browse-submit" type="submit">Go</button>
-      </form>
-      <div class="browser-controls" role="toolbar" aria-label="Browser controls">
-        <button type="button" data-control="back" title="Back">←</button>
-        <button type="button" data-control="forward" title="Forward">→</button>
-        <button type="button" data-control="reload" title="Reload">↻</button>
-        <button type="button" id="view-close" title="Close background tab">Close browser</button>
-      </div>
-      <div class="quick-title">QUICK DESTINATIONS</div>
-      <div class="shortcuts">
-        <button type="button" data-quick="chatgpt">ChatGPT</button>
-        <button type="button" data-quick="google">Google</button>
-        <button type="button" data-quick="github">GitHub</button>
-        <button type="button" data-quick="docs">Docs</button>
-      </div>
-      <div id="browser-alert" role="status" aria-live="polite">Enter a URL or choose a destination.</div>
-      <div id="browser-viewport" tabindex="0" aria-label="Interactive remote webpage preview">
-        <img id="browser-screen" alt="Live view of the background browser page" hidden draggable="false">
-        <div id="browser-empty">Your website will appear here inside CopyType.</div>
-      </div>
-      <div class="browser-type">
-        <label for="browser-text">Enter text in the webpage (click its input first)</label>
-        <div class="browser-type-row"><input id="browser-text" type="text" placeholder="Type into the selected field…" maxlength="5000"><button id="browser-send" type="button">Type</button><button id="browser-enter" type="button">↵</button></div>
-      </div>
-      <p class="browser-disclaimer">This view mirrors a real background tab in the same Brave/Chromium window using the browser debugger. It does not copy your sign-in cookies. Brave may display a debugging notice. Visible UI is captured when you share the entire screen.</p>
-    </section>
-    <footer>Runs in your browser · No external CopyType servers</footer>
-  </main>
-  <script src="timing.js"></script>
-  <script src="browser-utils.js"></script>
-  <script src="popup.js"></script>
-  <script src="viewer-ui.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CopyType</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="logo">&gt;_</div>
+        <div>
+          <h1>CopyType <span>1.3</span></h1>
+          <p>Code entry & browser workspace</p>
+        </div>
+      </header>
+      <nav class="switcher" aria-label="CopyType tools">
+        <button
+          type="button"
+          class="switch active"
+          data-panel="typing"
+          aria-selected="true"
+        >
+          ⌨ &nbsp; Type code
+        </button>
+        <button
+          type="button"
+          class="switch"
+          data-panel="browser"
+          aria-selected="false"
+        >
+          ◎ &nbsp; Browser
+        </button>
+      </nav>
+      <section id="typing-panel" class="panel">
+        <label for="source">Text or source code</label>
+        <textarea
+          id="source"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          placeholder="Paste your code here…"
+        ></textarea>
+        <div class="stats">
+          <span id="count">0 characters</span
+          ><span id="estimate">Estimated 0s</span>
+        </div>
+        <label class="select-label" for="mode">Typing method</label>
+        <select id="mode">
+          <option value="literal">
+            Exact editor mode (recommended for code)
+          </option>
+          <option value="keyboard">
+            Keyboard events (regular fields only)
+          </option>
+        </select>
+        <p class="hint">
+          Long inputs target approximately five minutes; very large inputs take
+          longer.
+        </p>
+        <div id="alert" role="status" aria-live="polite"></div>
+        <button id="confirm" disabled>Confirm · choose an editor</button>
+        <button id="cancel" class="secondary" hidden>
+          Cancel current task
+        </button>
+      </section>
+      <section id="browser-panel" class="panel" hidden>
+        <div class="browser-heading">
+          <strong>In-extension browser</strong
+          ><span class="session-note">● Current browser profile</span>
+        </div>
+        <form id="browse-form" class="browser-bar">
+          <label class="sr-only" for="browse-address"
+            >Address or search query</label
+          >
+          <input
+            id="browse-address"
+            placeholder="chatgpt.com or search the web…"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="2048"
+          />
+          <button id="browse-submit" type="submit">Go</button>
+        </form>
+        <div
+          class="browser-controls"
+          role="toolbar"
+          aria-label="Browser controls"
+        >
+          <button type="button" data-control="back" title="Back">←</button>
+          <button type="button" data-control="forward" title="Forward">
+            →
+          </button>
+          <button type="button" data-control="reload" title="Reload">↻</button>
+          <button type="button" id="view-close" title="Close background tab">
+            Close browser
+          </button>
+        </div>
+        <div class="quick-title">QUICK DESTINATIONS</div>
+        <div class="shortcuts">
+          <button type="button" data-quick="chatgpt">ChatGPT</button>
+          <button type="button" data-quick="google">Google</button>
+          <button type="button" data-quick="github">GitHub</button>
+          <button type="button" data-quick="docs">Docs</button>
+        </div>
+        <div id="browser-alert" role="status" aria-live="polite">
+          Enter a URL or choose a destination.
+        </div>
+        <div
+          id="browser-viewport"
+          tabindex="0"
+          aria-label="Interactive remote webpage preview"
+        >
+          <img
+            id="browser-screen"
+            alt="Live view of the background browser page"
+            hidden
+            draggable="false"
+          />
+          <div id="browser-empty">
+            Your website will appear here inside CopyType.
+          </div>
+        </div>
+        <div class="browser-type">
+          <label for="browser-text"
+            >Enter text in the webpage (click its input first)</label
+          >
+          <div class="browser-type-row">
+            <input
+              id="browser-text"
+              type="text"
+              placeholder="Type into the selected field…"
+              maxlength="5000"
+            /><button id="browser-send" type="button">Type</button
+            ><button id="browser-enter" type="button">↵</button>
+          </div>
+        </div>
+        <p class="browser-disclaimer">
+          This view mirrors a real background tab in the same Brave/Chromium
+          window using the browser debugger. It does not copy your sign-in
+          cookies. Brave may display a debugging notice. Visible UI is captured
+          when you share the entire screen.
+        </p>
+      </section>
+      <footer>Runs in your browser · No external CopyType servers</footer>
+    </main>
+    <script src="timing.js"></script>
+    <script src="browser-utils.js"></script>
+    <script src="popup.js"></script>
+    <script src="viewer-ui.js"></script>
+  </body>
 </html>
