@@ -38,9 +38,25 @@ Only approve this after installing Electron from a source you trust. Reinstallin
 
 Google OAuth and some other providers reject embedded Chromium authentication (`disallowed_useragent`). ChatGPT sign-in compatibility must be tested on your device; it cannot be guaranteed.
 
-The application is an ordinary visible desktop window. It is **not invisible** to whole-screen recording or sharing; it does not evade proctoring or contest monitoring. Share only the intended window/tab in a presentation and inspect the live preview.
+By default, the application is an ordinary visible desktop window and appears in whole-screen recording or sharing. KDE Plasma Wayland offers an optional capture-exclusion path, described below. Inspect your recorder's live preview before relying on it.
 
 There are no analytics, remote backends, or auto-read clipboard operations. Websites still receive the ordinary browser requests you send. The original CopyType typing extension remains in the project root.
+
+## KDE Plasma capture exclusion
+
+On KDE Plasma **6.6 or newer**, in a **Wayland session**, launch with:
+
+```bash
+bash desktop/start-kde-private.sh
+```
+
+Install desktop dependencies and configure the Electron sandbox using the normal launcher first. This optional launcher installs a temporary KWin script before starting Electron. The script marks this process's native windows with `excludeFromCapture`; it is unloaded when the application closes. It does not change other applications' capture settings.
+
+On this machine, Plasma 6.6.6 was installed alongside GNOME. Save your work, log out, select your account, use the login screen's session selector to choose **Plasma (Wayland)**, and sign in. GNOME remains available as **Ubuntu**. Changing sessions requires logging out; the installer does not switch your current session.
+
+The nested-KWin tests showed both a synthetic private window and the actual CopyType Mini Browser locally while the PipeWire screencast showed the desktop underneath, without a black rectangle. The new launcher's automatic exclusion also passed. See the [validation record and captured frames](validation/kde-2026-11-07/README.md). This applies to KWin's supported capture path. It does **not** protect an app inside a nested KDE window from the outer GNOME session's whole-screen capture. Direct GPU/KMS capture and other capture paths can still include the app. Plasma 6.6 screenshot behavior is separate from its screencast behavior. The browser extension's in-page widget is part of the browser window and is not independently excluded by this launcher.
+
+The browser's typed output remains part of the destination page and can appear in recordings of that page.
 
 ## Tests
 

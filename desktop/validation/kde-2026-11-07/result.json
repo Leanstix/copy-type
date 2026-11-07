@@ -1,0 +1,39 @@
+{
+  "automatic": {
+    "width": 1000,
+    "height": 700,
+    "red": 0,
+    "green": 661125,
+    "black": 12
+  },
+  "baseline": {
+    "width": 1000,
+    "height": 700,
+    "red": 0,
+    "green": 276040,
+    "black": 3595
+  },
+  "excluded": {
+    "width": 1000,
+    "height": 700,
+    "red": 0,
+    "green": 661149,
+    "black": 0
+  },
+  "local_screenshot": {
+    "format": 6,
+    "height": 700,
+    "scale": 1.0,
+    "stride": 4000,
+    "type": "raw",
+    "width": 1000
+  },
+  "restored": {
+    "width": 1000,
+    "height": 700,
+    "red": 0,
+    "green": 276040,
+    "black": 3595
+  },
+  "passed": true
+}

@@ -7,8 +7,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check navigation.cjs && node --check tab-state.cjs && node --check renderer.js",
-    "check:linux": "bash -n start-linux.sh"
+    "check": "node --check main.cjs && node --check preload.cjs && node --check navigation.cjs && node --check tab-state.cjs && node --check renderer.js && node --check kde-exclude.js",
+    "check:linux": "bash -n start-linux.sh && bash -n start-kde-private.sh"
   },
   "devDependencies": {
     "electron": "45.2.1"

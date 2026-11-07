@@ -10,7 +10,7 @@ On Linux, with Node.js 20+ and npm installed:
 bash desktop/start-linux.sh
 ```
 
-The first run installs Electron, so internet access is needed. The mini-browser uses Chromium and is not a tiny executable; embedded site authentication (especially Google OAuth) is not universally supported. **It is visible during whole-screen recording and sharing.** See [desktop documentation](desktop/README.md) for limitations.
+The first run installs Electron, so internet access is needed. The mini-browser uses Chromium and is not a tiny executable; embedded site authentication (especially Google OAuth) is not universally supported. It is visible during whole-screen recording and sharing by default. An optional KDE Plasma Wayland launcher can exclude its native windows from supported screencasts; see [desktop documentation](desktop/README.md#kde-plasma-capture-exclusion) for setup and limitations.
 
 ---
 
