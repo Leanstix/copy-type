@@ -1,9 +1,9 @@
 {
   "name": "copytype-editor",
   "displayName": "CopyType Editor Connection",
-  "description": "Send exact, paced text from the local CopyType desktop app to an explicitly selected editor.",
+  "description": "Discover open VS Code tabs and create workspace files from the local CopyType desktop app.",
   "publisher": "copytype-local",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": {"vscode": "^1.85.0"},
   "main": "./extension.cjs",
   "activationEvents": ["onStartupFinished"],
@@ -11,7 +11,7 @@
   "categories": ["Other"],
   "contributes": {
     "commands": [
-      {"command": "copytype.selectEditor", "title": "CopyType: Use This Editor"},
+      {"command": "copytype.selectEditor", "title": "CopyType: Reconnect to Desktop"},
       {"command": "copytype.disconnect", "title": "CopyType: Disconnect Editor"}
     ]
   }

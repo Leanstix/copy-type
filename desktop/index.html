@@ -34,10 +34,20 @@
 <aside id="typingPanel" hidden aria-label="CopyType text entry">
 <div class="panel-heading"><h1>Type into an editor</h1><button id="closeTyping" aria-label="Close typing panel">×</button></div>
 <p class="hint">Choose a destination, paste your text, then start. You can keep browsing while it types.</p>
-<label for="destination">Destination</label>
+<label for="editorSource">Editor</label>
+<select id="editorSource"><option value="vscode">VS Code</option><option value="browser">Mini browser</option><option value="desktop">Other desktop fields</option></select>
+<div id="vscodeWindowRow"><label for="vscodeWindow">VS Code window / workspace</label><select id="vscodeWindow"></select></div>
+<label for="destination" id="destinationLabel">Open tab</label>
 <select id="destination"><option value="">Choose an editor…</option></select>
 <div class="target-actions"><button id="selectBrowser">Select browser editor</button><button id="refreshDesktop">Desktop fields</button></div>
-<p class="hint">For VS Code: place the cursor in a file, then run <strong>CopyType: Use This Editor</strong> from its Command Palette. The file will appear above.</p>
+<div id="vscodeControls">
+<p id="vscodeHint" class="hint">Open VS Code tabs appear automatically. Typing begins at the selected tab’s cursor.</p>
+<details id="newFileOptions"><summary>Create a file or tab</summary>
+<label for="vscodeFolder">Workspace folder</label><select id="vscodeFolder"></select>
+<label for="newFilename">New filename</label><input id="newFilename" type="text" placeholder="src/example.js" autocomplete="off" spellcheck="false">
+<div class="target-actions"><button id="createVsFile">Create file</button><button id="newVsTab">New untitled tab</button></div>
+</details>
+</div>
 <label for="source">Text to enter</label>
 <textarea id="source" spellcheck="false" placeholder="Paste your text or code here…"></textarea>
 <div class="pace"><label for="rate">Characters / second</label><input id="rate" type="number" min="1" max="60" step="0.5" value="7.5"></div>

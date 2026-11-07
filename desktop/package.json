@@ -7,7 +7,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check navigation.cjs && node --check tab-state.cjs && node --check renderer.js && node --check kde-exclude.js && node --check typing.cjs && node --check local-bridge.cjs && node --check page-editor.js && node --check vscode/extension.cjs && node --check window-shortcuts.cjs && node --check kde-shortcuts.js",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check navigation.cjs && node --check tab-state.cjs && node --check renderer.js && node --check kde-exclude.js && node --check typing.cjs && node --check local-bridge.cjs && node --check page-editor.js && node --check vscode/extension.cjs && node --check vscode/files.cjs && node --check window-shortcuts.cjs && node --check kde-shortcuts.js && node --check browser-permissions.cjs",
     "check:linux": "bash -n start-linux.sh && bash -n start-kde-private.sh"
   },
   "devDependencies": {

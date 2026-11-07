@@ -6,7 +6,9 @@ A standalone one-window browser workspace alongside the existing Brave extension
 
 Open **Type text** in the browser toolbar. Choose a destination, paste the source, choose a pace, and press **Start typing**. The selected document or field stays pinned when you change windows or browser tabs. Pause, resume, and cancel are available in the panel. Cancel preserves text already entered. Paste another sample after completion to continue at the inserted text's end.
 
-For **VS Code**, install the bundled [editor connection](vscode/README.md), place the cursor or select a range in the destination file, and run **CopyType: Use This Editor** in VS Code's Command Palette. Choose that file in CopyType's destination list. The selected document remains the destination even when another file is active. The integration does not save or submit files automatically. It supports local VS Code extension hosts, including unsaved documents, with one cursor/selection. LF/CRLF follows the document's line-ending convention.
+For **VS Code**, install the bundled [editor connection](vscode/README.md), then choose **VS Code** in the panel. Open text tabs appear automatically, including inactive and untitled tabs. A single connected window is selected for you; with several windows, select the workspace/window first. Choose the destination tab and start at its current cursor or selection—no VS Code command is needed. The selected document remains the destination when you switch files. LF/CRLF follows the document's line-ending convention.
+
+Use **Create a file or tab** to create a named file inside the selected workspace folder, or open a new untitled tab. It opens automatically in VS Code and is selected as the typing destination. Existing files are not overwritten. In multi-folder workspaces, choose the folder. Creating a named file writes an empty file; text entered afterwards is not automatically saved or submitted. With no folder open, use an untitled tab.
 
 For the **mini browser**, open the target page, click **Select browser editor**, and click the destination field. Supported destinations include text inputs, text areas, and exposed Ace, CodeMirror, and Monaco editor models. Cross-origin iframe editors and editors with no accessible model are not guaranteed. Password fields are excluded. The desktop app rejects an unsupported exact editor instead of claiming that synthetic keystrokes preserve formatting.
 
@@ -44,7 +46,7 @@ Only approve this after installing Electron from a source you trust. Reinstallin
 
 - An address bar, Google search, back/forward/reload and up to six internal tabs.
 - One-click ChatGPT, Google, GitHub, and MDN shortcuts.
-- Sites use a sandboxed Electron `WebContentsView`; Node integration is disabled and permission requests are denied by default.
+- Sites use a sandboxed Electron `WebContentsView`; Node integration is disabled. The focused active website may write to the clipboard so its copy buttons work; clipboard reads and other permission requests remain denied. Clicking the embedded page restores its input focus.
 - Cookies, history and authenticated sessions persist in **this application's own local browser profile** (`persist:copytype-mini-browser`). No Brave cookie extraction or password copying.
 - Popup links attempt to open as another internal tab; some OAuth flows require real browser popup windows and may not work.
 

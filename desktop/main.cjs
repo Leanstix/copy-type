@@ -7,26 +7,28 @@ const {makeTabState}=require('./tab-state.cjs');
 const {TypingController}=require('./typing.cjs');
 const {LocalBridge,AccessibilityBridge}=require('./local-bridge.cjs');
 const {KdeShortcuts,toggleWindow}=require('./window-shortcuts.cjs');
+const {configurePermissions}=require('./browser-permissions.cjs');
 const HOME=process.env.COPYTYPE_START_URL||'https://chatgpt.com/',BAR_HEIGHT=126,PARTITION='persist:copytype-mini-browser';
 const tabs=new Map(),model=makeTabState();
 const typing=new TypingController(),accessibility=new AccessibilityBridge(),browserTargets=new Map();
 let kdeShortcuts=null;
 let win=null,visibleId=null,siteSession=null,localBridge=null,panelOpen=false,selecting=false,selectionContents=null,preferredTarget=null;
 function destinations(){return [...browserTargets.values(),...(localBridge?.targets()||[]),...accessibility.targets()];}
-function snapshot(){return {activeId:model.activeId,panelOpen,selecting,preferredTarget,typing:{...typing.state,busy:!!typing.job},targets:destinations().map(({id,label,kind})=>({id,label,kind})),tabs:model.ids.map(id=>{const t=tabs.get(id),w=t.view.webContents;return {id,title:t.title||'New tab',url:w.getURL()||t.url,loading:w.isLoading(),canGoBack:w.navigationHistory.canGoBack(),canGoForward:w.navigationHistory.canGoForward()};})};}
+function snapshot(){return {activeId:model.activeId,panelOpen,selecting,preferredTarget,vscodeWindows:localBridge?.windows()||[],typing:{...typing.state,busy:!!typing.job},targets:destinations().map(({id,label,kind,windowId,active})=>({id,label,kind,windowId,active})),tabs:model.ids.map(id=>{const t=tabs.get(id),w=t.view.webContents;return {id,title:t.title||'New tab',url:w.getURL()||t.url,loading:w.isLoading(),canGoBack:w.navigationHistory.canGoBack(),canGoForward:w.navigationHistory.canGoForward()};})};}
 function publish(){if(win&&!win.isDestroyed()&&!win.webContents.isDestroyed())win.webContents.send('mini:state',snapshot());}
 function sizeView(){if(!win||win.isDestroyed())return;const [width,height]=win.getContentSize();const t=tabs.get(model.activeId);if(t)t.view.setBounds({x:0,y:BAR_HEIGHT,width:Math.max(0,width-(panelOpen?360:0)),height:Math.max(0,height-BAR_HEIGHT)});}
 typing.on('state',publish);
 function activate(id){
  if(!tabs.has(id))throw Error('Unknown tab.');
  if(visibleId!==null&&tabs.has(visibleId))try{win.contentView.removeChildView(tabs.get(visibleId).view);}catch{}
- model.activate(id);win.contentView.addChildView(tabs.get(id).view);visibleId=id;sizeView();publish();
+ model.activate(id);win.contentView.addChildView(tabs.get(id).view);visibleId=id;sizeView();tabs.get(id).view.webContents.focus();publish();
 }
 function openTab(input=HOME){
  const url=resolveInput(input),id=model.add();
  const view=new WebContentsView({webPreferences:{session:siteSession,sandbox:true,contextIsolation:true,nodeIntegration:false,webSecurity:true,allowRunningInsecureContent:false}});
  const tab={id,view,title:'New tab',url};tabs.set(id,tab);
  const w=view.webContents;
+ w.on('before-mouse-event',(_event,mouse)=>{if(mouse.type==='mouseDown'&&model.activeId===id)w.focus();});
  w.setWindowOpenHandler(({url:target})=>{
   try{const safe=validateURL(target);setImmediate(()=>{if(win&&!win.isDestroyed())try{openTab(safe);}catch{}});}catch{}
   return {action:'deny'};
@@ -77,6 +79,17 @@ async function typingCommand({type,payload}){
   return typing.start(destinations().find(item=>item.id===payload.target),payload.text,payload.rate);
  }
  if(typing.job)throw Error('Cancel or finish typing before changing destinations.');
+ if(type==='vscode-refresh'){await localBridge.refresh();publish();return;}
+ if(type==='vscode-select'){
+  const target=localBridge.targets().find(item=>item.id===payload?.target);
+  if(!target?.select)throw Error('Choose an open VS Code tab.');
+  await target.select();preferredTarget=target.id;publish();return;
+ }
+ if(type==='vscode-create'){
+  if(!payload||typeof payload.window!=='string')throw Error('Choose a VS Code window first.');
+  const result=await localBridge.command(payload.window,'create-file',{name:payload.name,folderId:payload.folderId,untitled:payload.untitled===true});
+  await localBridge.refresh();preferredTarget=`vscode:${payload.window}:${result.tabId}`;publish();return {id:preferredTarget};
+ }
  if(type==='desktop-fields'){
   const fields=await accessibility.refresh();
   typing.update({status:'idle',message:fields.length?`Found ${fields.length} editable desktop fields. Choose one above.`:'No compatible desktop fields found. Use the VS Code connection or select an editor in the browser.'});
@@ -112,8 +125,7 @@ function command({type,payload}){
 }
 function createWindow(){
  siteSession=session.fromPartition(PARTITION,{cache:true});
- siteSession.setPermissionRequestHandler((_web,_permission,callback)=>callback(false));
- siteSession.setPermissionCheckHandler(()=>false);
+ configurePermissions(siteSession,()=>({webContents:tabs.get(model.activeId)?.view.webContents,focused:!!win&&!win.isDestroyed()&&win.isFocused(),visible:!!win&&!win.isDestroyed()&&win.isVisible()}));
  win=new BrowserWindow({width:1120,height:780,minWidth:760,minHeight:540,title:'CopyType Mini Browser',backgroundColor:'#0c1220',autoHideMenuBar:true,
   webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  Menu.setApplicationMenu(null);

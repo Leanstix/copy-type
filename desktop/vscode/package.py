@@ -17,6 +17,6 @@ content_types = '''<?xml version="1.0" encoding="utf-8"?><Types xmlns="http://sc
 with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
     archive.writestr('extension.vsixmanifest', manifest)
     archive.writestr('[Content_Types].xml', content_types)
-    for name in ('package.json', 'extension.cjs', 'README.md'):
+    for name in ('package.json', 'extension.cjs', 'files.cjs', 'README.md'):
         archive.write(root / name, f'extension/{name}')
 print(output)

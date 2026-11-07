@@ -65,7 +65,7 @@ class LocalBridge extends EventEmitter {
   accept(socket) {
     const peer = new RpcPeer(message => socket.write(JSON.stringify(message) + '\n'));
     peer.disconnect = () => socket.destroy();
-    peer.id = randomUUID(); peer.target = null;
+    peer.id = randomUUID(); peer.target = null; peer.catalog = null;
     let authenticated = false;
     const timer = setTimeout(() => socket.destroy(), 5000);
     jsonLines(socket, message => {
@@ -76,7 +76,9 @@ class LocalBridge extends EventEmitter {
         authenticated = true; clearTimeout(timer); this.peers.set(peer.id, peer);
         socket.write(JSON.stringify({op: 'connected'}) + '\n'); return;
       }
-      if (message.op === 'target') {
+      if (message.op === 'catalog') {
+        this.setCatalog(peer, message.catalog);
+      } else if (message.op === 'target') {
         peer.target = message.target && typeof message.target.revision === 'string' && typeof message.target.label === 'string'
           ? {revision: message.target.revision.slice(0, 80), label: message.target.label.slice(0, 300)} : null;
         this.emit('targets');
@@ -85,12 +87,34 @@ class LocalBridge extends EventEmitter {
     socket.on('error', () => {});
     socket.on('close', () => { clearTimeout(timer); peer.close(); this.peers.delete(peer.id); this.emit('targets'); });
   }
+  setCatalog(peer, catalog) {
+    if (!catalog || typeof catalog.label !== 'string' || !Array.isArray(catalog.tabs) || !Array.isArray(catalog.folders)) return;
+    const unique = (items, maximum) => [...new Map(items.filter(item => item && typeof item.id === 'string' && typeof item.label === 'string').slice(0, maximum).map(item => [item.id, {id: item.id.slice(0, 4096), label: item.label.slice(0, 400), active: !!item.active}])).values()];
+    peer.catalog = {label: catalog.label.slice(0, 300), focused: !!catalog.focused, tabs: unique(catalog.tabs, 300), folders: unique(catalog.folders, 30)};
+    this.emit('targets');
+  }
+  windows() {
+    return [...this.peers.values()].filter(peer => peer.catalog).map(peer => ({id: peer.id, label: peer.catalog.label, focused: peer.catalog.focused, folders: peer.catalog.folders, activeTarget: peer.catalog.tabs.find(tab => tab.active) ? `vscode:${peer.id}:${peer.catalog.tabs.find(tab => tab.active).id}` : null}));
+  }
+  async refresh() {
+    await Promise.allSettled([...this.peers.values()].filter(peer => peer.catalog).map(async peer => this.setCatalog(peer, await peer.call('list-tabs'))));
+  }
+  command(windowId, op, args) {
+    const peer = this.peers.get(windowId);
+    if (!peer?.catalog) throw Error('This VS Code window disconnected. Choose another window.');
+    return peer.call(op, args);
+  }
   targets() {
-    return [...this.peers.values()].filter(peer => peer.target).map(peer => {
+    const discovered = [...this.peers.values()].filter(peer => peer.catalog).flatMap(peer => peer.catalog.tabs.map(tab => ({
+      id: `vscode:${peer.id}:${tab.id}`, label: tab.label, kind: 'VS Code', windowId: peer.id, active: tab.active,
+      select: () => peer.call('select-tab', {tabId: tab.id}),
+      call: (op, args) => peer.call(op, {...args, tabId: tab.id})
+    })));
+    return [...discovered, ...[...this.peers.values()].filter(peer => peer.target && !peer.catalog).map(peer => {
       const target = {...peer.target};
       return {id: `vscode:${peer.id}:${target.revision}`, label: `VS Code · ${target.label}`, kind: 'VS Code',
         call: (op, args) => peer.call(op, {...args, revision: target.revision})};
-    });
+    })];
   }
   close() {
     for (const peer of this.peers.values()) { peer.close(); peer.disconnect(); }
