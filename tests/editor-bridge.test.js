@@ -33,11 +33,12 @@ function fakeCM5(initial) {
     setCursor:p=>{cursor=indexOf(text,{row:p.line,column:p.ch});},focus:()=>{}};
   return {element:{closest:s=>s==='.CodeMirror'?{CodeMirror:cm}:null},value:()=>text};
 }
-function fakeCM6(initial) {
+function fakeCM6(initial, {modern = true, readOnly = false} = {}) {
   let text=initial,from=0,to=0;
-  const view={get state(){return {doc:{toString:()=>text},selection:{main:{from,to}}};},
+  const view={get state(){return {readOnly,doc:{toString:()=>text},selection:{main:{from,to}}};},
     dispatch:spec=>{const {from:f,to:t,insert}=spec.changes;text=text.slice(0,f)+insert+text.slice(t);from=to=spec.selection.anchor;},focus:()=>{}};
-  const el={querySelector:s=>s==='.cm-content'?{cmView:{view}}:null};
+  const content=modern ? {cmTile:{root:{view}}} : {cmView:{view}};
+  const el={querySelector:s=>s==='.cm-content'?content:null};
   return {element:{closest:s=>s==='.cm-editor'?el:null},value:()=>text};
 }
 function fakeMonaco(initial) {
@@ -89,4 +90,23 @@ test('Ace reconciliation fixes an editor plugin which altered source',()=>{
 
 test('adapter rejects non-code editors instead of editing a DOM projection',()=>{
   assert.equal(findAdapter({closest:()=>null}),null);
+});
+
+test('CodeMirror 6 supports the older view link and refuses read-only sessions', () => {
+  assert.equal(findAdapter(fakeCM6('', {modern: false}).element).kind, 'CodeMirror 6');
+  const adapter = findAdapter(fakeCM6('locked', {readOnly: true}).element);
+  assert.throws(() => makeSession(adapter), /read-only/);
+});
+
+test('editor sessions use native CRLF offsets across a selection and inserted newline', () => {
+  let value = 'left\r\nOLD-right';
+  const session = makeSession({
+    read: () => value,
+    lineBreak: () => '\r\n',
+    selection: () => [6, 9],
+    insert: (from, to, text) => { value = value.slice(0, from) + text + value.slice(to); },
+  });
+  for (const char of 'a\n💡') session.append(char);
+  assert.deepEqual(session.complete(), {verified: true, characters: 3});
+  assert.equal(value, 'left\r\na\r\n💡-right');
 });

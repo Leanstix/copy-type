@@ -19,12 +19,14 @@
         editor &&
         session &&
         doc &&
-        isCallable(session.insert) &&
         isCallable(session.replace) &&
+        isCallable(doc.indexToPosition) &&
         isCallable(doc.positionToIndex)
       ) {
         return {
           kind: "Ace",
+          readOnly: () => editor.getReadOnly?.(),
+          lineBreak: () => doc.getNewLineCharacter?.(),
           read: () => editor.getValue(),
           selection: () => {
             const range = editor.getSelectionRange();
@@ -44,7 +46,6 @@
             editor.selection.moveCursorToPosition(cursor);
             editor.clearSelection();
           },
-          focus: () => editor.focus(),
         };
       }
     }
@@ -52,6 +53,8 @@
     if (cm5 && isCallable(cm5.replaceRange)) {
       return {
         kind: "CodeMirror 5",
+        readOnly: () => cm5.getOption?.("readOnly"),
+        lineBreak: () => cm5.getDoc?.().lineSeparator(),
         read: () => cm5.getValue(),
         selection: () => [
           cm5.indexFromPos(cm5.getCursor("from")),
@@ -66,14 +69,13 @@
           );
           cm5.setCursor(cm5.posFromIndex(from + text.length));
         },
-        focus: () => cm5.focus(),
       };
     }
     const cm6El = element.closest(".cm-editor");
-    // CM6 does not expose a DOM->EditorView API to an extension isolated world.
-    // The page-world .cmView connection is implementation-specific; if absent,
-    // fall back to the browser's regular text input rather than touching DOM.
-    const cm6 = cm6El?.querySelector?.(".cm-content")?.cmView?.view;
+    // Bundled sites may not expose EditorView. Use the links on the content
+    // element that its findFromDOM method uses in current and older releases.
+    const content = cm6El?.querySelector(".cm-content");
+    const cm6 = content?.cmTile?.root?.view ?? content?.cmView?.view;
     if (
       cm6 &&
       isCallable(cm6.dispatch) &&
@@ -82,6 +84,7 @@
     ) {
       return {
         kind: "CodeMirror 6",
+        readOnly: () => cm6.state.readOnly || content.contentEditable === "false",
         read: () => cm6.state.doc.toString(),
         selection: () => [
           cm6.state.selection.main.from,
@@ -89,21 +92,29 @@
         ],
         insert: (from, to, text) =>
           cm6.dispatch({
-            changes: { from, to, insert: text },
+            changes: {
+              from, to,
+              insert: cm6.state.toText
+                ? cm6.state.toText(text.replace(/\n/g, () => cm6.state.lineBreak))
+                : text,
+            },
             selection: { anchor: from + text.length },
             userEvent: "input.copytype",
           }),
-        focus: () => cm6.focus(),
       };
     }
     const monacoEl = element.closest(".monaco-editor");
-    const monaco = root.monaco?.editor;
-    const editors = isCallable(monaco?.getEditors) ? monaco.getEditors() : [];
-    const m = monacoEl && editors.find((e) => e.getDomNode?.() === monacoEl);
+    const monaco = (element.ownerDocument?.defaultView ?? root).monaco?.editor;
+    const m = monacoEl && monaco?.getEditors?.().find((editor) => {
+      const node = editor.getDomNode();
+      return node === monacoEl || node?.contains(element);
+    });
     const model = m?.getModel?.();
     if (m && model && isCallable(m.executeEdits)) {
       return {
         kind: "Monaco",
+        readOnly: () => m.getRawOptions?.().readOnly,
+        lineBreak: () => model.getEOL?.(),
         read: () => model.getValue(),
         selection: () => {
           const s = m.getSelection();
@@ -113,11 +124,13 @@
           ];
         },
         insert: (from, to, text) => {
+          const start = model.getPositionAt(from);
+          const end = model.getPositionAt(to);
           const range = {
-            startLineNumber: model.getPositionAt(from).lineNumber,
-            startColumn: model.getPositionAt(from).column,
-            endLineNumber: model.getPositionAt(to).lineNumber,
-            endColumn: model.getPositionAt(to).column,
+            startLineNumber: start.lineNumber,
+            startColumn: start.column,
+            endLineNumber: end.lineNumber,
+            endColumn: end.column,
           };
           if (
             !m.executeEdits("copytype", [
@@ -127,14 +140,18 @@
             throw new Error("Monaco rejected the change");
           m.setPosition(model.getPositionAt(from + text.length));
         },
-        focus: () => m.focus(),
       };
     }
     return null;
   }
 
   function makeSession(adapter) {
-    const initial = normalize(adapter.read());
+    const requireWritable = () => {
+      if (adapter.readOnly?.()) throw new Error("The editor is read-only.");
+    };
+    requireWritable();
+    const initial = adapter.read();
+    const lineBreak = adapter.lineBreak?.() ?? "\n";
     const [from, to] = adapter.selection();
     if (
       ![from, to].every(Number.isSafeInteger) ||
@@ -145,6 +162,7 @@
       throw new Error("Editor selection is invalid");
     }
     let typed = "";
+    let characters = 0;
     return {
       kind: adapter.kind,
       get expected() {
@@ -153,24 +171,28 @@
       append(char) {
         if (typeof char !== "string" || !char.length)
           throw new Error("Empty input");
+        requireWritable();
+        const text = normalize(char).replace(/\n/g, () => lineBreak);
         const pos = from + typed.length;
-        adapter.insert(pos, pos + (typed.length === 0 ? to - from : 0), char);
-        typed += char;
+        adapter.insert(pos, pos + (characters === 0 ? to - from : 0), text);
+        typed += text;
+        characters += Array.from(char).length;
       },
       complete() {
+        requireWritable();
         const expected = initial.slice(0, from) + typed + initial.slice(to);
-        let actual = normalize(adapter.read());
+        let actual = adapter.read();
         if (actual !== expected) {
           // Reconcile only for a recognized editor with its native data model.
           // This is essential for editor plugins which modify the buffer after edits.
           adapter.insert(0, actual.length, expected);
-          actual = normalize(adapter.read());
+          actual = adapter.read();
         }
         if (actual !== expected)
           throw new Error(
             "Editor contents could not be verified. Check the source before submitting.",
           );
-        return { verified: true, characters: Array.from(typed).length };
+        return { verified: true, characters };
       },
     };
   }
