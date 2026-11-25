@@ -36,13 +36,13 @@ async function arm(tabId, text, mode) {
 async function finish(tabId, job, outcome, message) {
   if (job.finished) return;
   job.finished = true;
-  jobs.delete(tabId);
   await chrome.storage.session.remove(keyForTab(tabId));
   if (job.attached) {
     job.attached = false;
     try { await chrome.debugger.detach({tabId}); } catch (_) { /* already detached */ }
   }
-  await ui(tabId,{type:'CT_STATE',status:outcome,message});
+  jobs.delete(tabId);
+  await ui(tabId,{type:'CT_STATE',status:outcome,message,verified:outcome==='done' && job.native});
 }
 
 async function emitCharacter(tabId, char, mode) {
@@ -61,6 +61,7 @@ async function start(tabId, native, codeEditor) {
   if (jobs.has(tabId)) throw new Error('A task is already running in this tab.');
   const queued = (await chrome.storage.session.get(keyForTab(tabId)))[keyForTab(tabId)];
   if (!queued || Date.now() - queued.created > 15*60*1000) throw new Error('Queue expired. Open the popup and confirm again.');
+  if (jobs.has(tabId)) throw new Error('A task is already running in this tab.');
   const chars = Array.from(queued.text.replace(/\r\n?/g,'\n'));
   const durationMs = CopyTypeTiming.secondsForCount(chars.length) * 1000;
   const delays = CopyTypeTiming.makeDelays(chars,durationMs);
@@ -79,6 +80,9 @@ async function start(tabId, native, codeEditor) {
           const result = await chrome.tabs.sendMessage(tabId,{type:'CT_EDITOR_APPEND',char:chars[i]});
           if (!result?.ok) throw new Error(result?.error || 'Editor rejected input');
         } else {
+          const target = await chrome.tabs.sendMessage(tabId,{type:'CT_CHECK_TARGET'});
+          if (!target?.ok) throw new Error(target?.error || 'The selected editor is unavailable.');
+          if (job.cancelled) break;
           // In code editors without an accessible model, prefer insertText
           // rather than key events, which trigger bracket/indent helpers.
           await emitCharacter(tabId,chars[i],job.codeEditor?'literal':job.mode);
@@ -93,7 +97,8 @@ async function start(tabId, native, codeEditor) {
         const verified=await chrome.tabs.sendMessage(tabId,{type:'CT_EDITOR_COMPLETE'});
         if (!verified?.ok || !verified?.verified) throw new Error(verified?.error || 'Editor contents could not be verified');
       }
-      await finish(tabId,job,job.cancelled?'cancelled':'done',job.cancelled?'Cancelled.':'Finished; editor content verified.');
+      const message = job.native ? 'Finished; editor content verified.' : 'Finished sending browser input. Check the result in the editor.';
+      await finish(tabId,job,job.cancelled?'cancelled':'done',job.cancelled?(job.cancelMessage || 'Cancelled.'):message);
     } catch (error) {
       await finish(tabId,job,'error',`Typing stopped: ${error.message || error}`);
     }
@@ -101,10 +106,14 @@ async function start(tabId, native, codeEditor) {
   return {ok:true};
 }
 
-async function control(tabId, type) {
+async function control(tabId, type, reason) {
   const job = jobs.get(tabId);
   if (type === 'CANCEL') {
-    if (job) { job.cancelled=true; job.paused=false; }
+    if (job) {
+      if (reason==='focus-changed') job.cancelMessage='Typing stopped because the selected editor lost focus.';
+      job.cancelled=true;
+      job.paused=false;
+    }
     else { await chrome.storage.session.remove(keyForTab(tabId)); await ui(tabId,{type:'CT_STATE',status:'cancelled'}); }
     return {ok:true};
   }
@@ -127,7 +136,7 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) => {
     if (message.type==='ARM') return arm(tabId,message.text,message.mode);
     if (message.type==='GET_STATE') return state(tabId);
     if (message.type==='START') return start(tabId, message.native, message.codeEditor);
-    if (['CANCEL','PAUSE','RESUME'].includes(message.type)) return control(tabId,message.type);
+    if (['CANCEL','PAUSE','RESUME'].includes(message.type)) return control(tabId,message.type,message.reason);
     throw new Error('Unknown command.');
   })().then(sendResponse).catch(error => sendResponse(responseError(error)));
   return true;

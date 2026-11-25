@@ -7,26 +7,72 @@
   let selectionRoot = null;
   let editorToken = '';
   let host, root, message, progress, pauseButton;
+  const trackedDocuments = new WeakSet();
   const pending = new Map();
-  const send = (type) => chrome.runtime.sendMessage({ type });
+  const send = (type, reason) => chrome.runtime.sendMessage({type, reason});
+  const editors = [
+    ['.monaco-editor', 'Monaco'],
+    ['.ace_editor', 'Ace'],
+    ['.CodeMirror', 'CodeMirror 5'],
+    ['.cm-editor', 'CodeMirror 6'],
+  ];
+  const editorSelector = editors.map(([selector]) => selector).join(', ');
+  const diagnose = (event, details = {}) => console.debug('[CopyType]', event, details);
+
+  function targetKind(element) {
+    const editor = editors.find(([selector]) => element.matches(selector));
+    if (editor) return editor[1];
+    if (element.tagName === 'TEXTAREA') return 'Textarea';
+    if (element.tagName === 'INPUT') return 'Text input';
+    if (element.matches('.ProseMirror, .ql-editor, [data-lexical-editor], [data-slate-editor]')) return 'Rich-text editor';
+    return 'Contenteditable';
+  }
+
+  function activeElement(doc = document) {
+    let active = doc.activeElement;
+    while (active) {
+      const inner = active.shadowRoot?.activeElement ?? active.contentDocument?.activeElement;
+      if (!inner) break;
+      active = inner;
+    }
+    return active;
+  }
 
   function eligible(element) {
-    if (!(element instanceof Element)) return null;
-    const editor = element.closest('.monaco-editor, .ace_editor, .CodeMirror, .cm-editor');
+    // Elements in an iframe have a different Element constructor.
+    if (typeof element?.closest !== 'function') return null;
+    if (element.closest('[inert]')) return null;
+    if (element.matches('input, textarea')) {
+      if (element.matches(':disabled, [readonly]')) return null;
+      if (element.tagName === 'INPUT') {
+        return ['text', 'search', 'email', 'url', 'tel', 'number'].includes(element.type)
+          ? element : null;
+      }
+      return element.closest('.CodeMirror') ??
+        element.closest('.ace_text-input, .inputarea')?.closest(editorSelector) ?? element;
+    }
+    const editor = element.closest(editorSelector);
     if (editor) return editor;
-    const field = element.closest('textarea, input, [contenteditable="true"], [contenteditable="plaintext-only"]');
-    if (!field || field.matches('[disabled], [readonly], input[type="password"], input[type="file"], input[type="checkbox"], input[type="radio"], input[type="submit"]')) return null;
-    if (field.tagName === 'INPUT' && !['text','search','email','url','tel','number'].includes(field.type)) return null;
-    return field;
+    if (element.isContentEditable) {
+      while (element.parentElement?.isContentEditable) element = element.parentElement;
+      return element;
+    }
+    if (element.ownerDocument?.designMode === 'on') return element.ownerDocument.body;
+    return null;
   }
+
+  function targetHasFocus() {
+    return selectionRoot?.isConnected && eligible(activeElement()) === selectionRoot;
+  }
+
   function bridge(action, char) {
     if (!selectionRoot) return Promise.resolve({ok:false,error:'Editor was disconnected.'});
     const id = crypto.randomUUID();
     return new Promise((resolve,reject) => {
       const timer = setTimeout(() => {pending.delete(id);reject(new Error('Editor did not respond.'));}, 4000);
       pending.set(id,{resolve,reject,timer});
-      selectionRoot.dispatchEvent(new CustomEvent('copytype:request',{
-        bubbles:true,composed:true, detail:{id,token:editorToken,action,char}
+      window.dispatchEvent(new CustomEvent('copytype:request',{
+        detail:{id, token:editorToken, action, char}
       }));
     });
   }
@@ -47,6 +93,8 @@
     const panel = document.createElement('div'); panel.className = 'panel';
     panel.innerHTML = '<strong>CopyType</strong><span id="message"></span><progress id="progress" max="100" value="0"></progress><div class="actions"><button id="pause">Pause</button><button class="secondary" id="cancel">Cancel</button></div>';
     root.append(style,panel); document.documentElement.appendChild(host);
+    // Keep the editor's selection when the panel's mouse controls are used.
+    root.addEventListener('mousedown', event => event.preventDefault());
     message = root.getElementById('message'); progress = root.getElementById('progress');
     pauseButton = root.getElementById('pause');
     pauseButton.addEventListener('click', () => {if(status==='typing'||status==='paused') send(status==='typing'?'PAUSE':'RESUME');});
@@ -62,51 +110,120 @@
       setTimeout(() => {if(status===state && host) host.style.display='none';}, 8500);
     }
   }
-  function onClick(event) {
-    if (status!=='armed' || (host && event.composedPath().includes(host))) return;
-    const candidate = event.composedPath().map(eligible).find(Boolean);
-    if (!candidate) return;
-    selectionRoot=candidate;
-    editorToken=crypto.randomUUID();
-    status='starting';
-    setTimeout(async () => {
-      try {
-        if(status!=='starting') return;
-        // The page's own click handler has now placed its cursor/selection.
-        const kind = await bridge('init');
-        if (!kind.ok) throw new Error(kind.error || 'Unable to initialise the editor');
-        const response = await chrome.runtime.sendMessage({type:'START',native:!!kind.supported,codeEditor:selectionRoot.matches('.ace_editor, .CodeMirror, .cm-editor, .monaco-editor')});
-        if (!response?.ok) throw new Error(response?.error || 'Could not start typing');
-        show('typing',kind.supported?`Exact mode: ${kind.kind}.`:'Browser text entry (verification depends on editor).');
-      } catch (error) { show('error',error.message); }
-    },110);
+  async function onClick(event) {
+    if (!event.isTrusted || status !== 'armed') return;
+    const path = event.composedPath();
+    if (path.includes(host)) return;
+    const candidate = path.map(eligible).find(Boolean);
+    if (!candidate) {
+      diagnose('click-ignored', {reason:'no-editable-target'});
+      return;
+    }
+    const token = crypto.randomUUID();
+    editorToken = token;
+    status = 'starting';
+    try {
+      // Let the page's click handler move the caret and focus its input first.
+      await new Promise(resolve => setTimeout(resolve, 110));
+      if (status !== 'starting' || editorToken !== token) return;
+      const active = eligible(activeElement());
+      if (!active || (active !== candidate && !candidate.contains(active))) {
+        diagnose('click-ignored', {reason:'target-did-not-receive-focus'});
+        show('armed', 'Click inside the editable area to place the caret.');
+        return;
+      }
+      selectionRoot = active;
+      const codeEditor = active.matches(editorSelector);
+      const kind = codeEditor ? await bridge('init') : {ok:true, supported:false};
+      if (status !== 'starting' || editorToken !== token) return;
+      if (!kind.ok) {
+        diagnose('editor-rejected', {editor:targetKind(active)});
+        show('armed', kind.error || 'Click inside a writable editor.');
+        return;
+      }
+      if (!targetHasFocus()) {
+        if (codeEditor) void bridge('cancel').catch(() => {});
+        diagnose('click-ignored', {reason:'focus-moved-before-start'});
+        show('armed', 'The editor lost focus. Click inside it to try again.');
+        return;
+      }
+      const response = await chrome.runtime.sendMessage({type:'START',native:!!kind.supported,codeEditor});
+      if (status !== 'starting' || editorToken !== token) return;
+      if (!response?.ok) throw new Error(response?.error || 'Could not start typing');
+      diagnose('editor-selected', {
+        editor: targetKind(active),
+        method: kind.supported ? 'editor-model' : 'browser-input',
+        frame: active.ownerDocument === document ? 'top' : 'iframe',
+      });
+      show('typing',kind.supported?`Exact mode: ${kind.kind}.`:'Browser text entry (verification depends on editor).');
+    } catch (error) {
+      if (status !== 'starting' || editorToken !== token) return;
+      diagnose('start-failed');
+      if (selectionRoot?.matches(editorSelector)) void bridge('cancel').catch(() => {});
+      show('error',error.message);
+    }
   }
   function onFocus(event) {
-    if (status!=='typing' || !selectionRoot) return;
-    if (event.target===selectionRoot || selectionRoot.contains(event.target)) return;
-    const candidate=eligible(event.target);
-    if (candidate && (candidate===selectionRoot || selectionRoot.contains(candidate))) return;
-    send('CANCEL');
-  }
-  document.addEventListener('click',onClick,true);
-  document.addEventListener('focusin',onFocus,true);
-  document.addEventListener('keydown',event => {
-    if(event.key==='Escape' && ['armed','starting','typing','paused'].includes(status)) {
-      event.preventDefault();event.stopImmediatePropagation();send('CANCEL');
+    if (!['typing','paused'].includes(status) || event.composedPath().includes(host)) return;
+    if (!targetHasFocus()) {
+      diagnose('focus-changed');
+      send('CANCEL', 'focus-changed');
     }
-  },true);
+  }
+  function onKeydown(event) {
+    if (event.isTrusted && event.key === 'Escape' && ['armed','starting','typing','paused'].includes(status)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      send('CANCEL');
+    }
+  }
+  function trackDocument(doc) {
+    if (!doc) return 0;
+    if (!trackedDocuments.has(doc)) {
+      trackedDocuments.add(doc);
+      doc.addEventListener('click', onClick, true);
+      doc.addEventListener('focusin', onFocus, true);
+      doc.addEventListener('keydown', onKeydown, true);
+      doc.addEventListener('load', event => {
+        if (event.target.matches?.('iframe, frame')) trackDocument(event.target.contentDocument);
+      }, true);
+    }
+    // contentDocument is null when Chromium denies access to the frame.
+    let count = 1;
+    for (const frame of doc.querySelectorAll('iframe, frame')) count += trackDocument(frame.contentDocument);
+    return count;
+  }
   // Switching tabs leaves this job running in its original tab. The worker
   // targets that tab ID; visibility is not a request to pause the job.
   chrome.runtime.onMessage.addListener((payload, sender, sendResponse) => {
-    if (payload.type==='CT_ARMED') { selectionRoot=null;progress && (progress.value=0);show('armed'); }
+    if (payload.type==='CT_ARMED') {
+      editorToken = '';
+      selectionRoot = null;
+      if (progress) progress.value = 0;
+      const accessibleFrames = trackDocument(document) - 1;
+      diagnose('armed', {accessibleFrames});
+      show('armed');
+    }
     if (payload.type==='CT_STATE') {
       if (payload.status==='done'||payload.status==='error'||payload.status==='cancelled') {
+        diagnose('finished', {status:payload.status, verified:payload.verified === true});
         // Cleanup is separate from verification, which was already completed by the worker.
-        if (selectionRoot) void bridge('cancel').catch(()=>{});
+        if (selectionRoot?.matches(editorSelector)) void bridge('cancel').catch(()=>{});
       }
       show(payload.status,payload.message||'');
     }
     if (payload.type==='CT_PROGRESS') {progress.value=payload.percent;message.textContent=`${payload.done.toLocaleString()} / ${payload.total.toLocaleString()} characters`;}
+    if (['CT_CHECK_TARGET','CT_EDITOR_APPEND','CT_EDITOR_COMPLETE'].includes(payload.type)) {
+      if (!targetHasFocus()) {
+        diagnose('target-unavailable', {reason:'focus-changed-or-target-removed'});
+        sendResponse({ok:false,error:'The selected editor lost focus or was removed.'});
+        return;
+      }
+      if (payload.type==='CT_CHECK_TARGET') {
+        sendResponse({ok:true});
+        return;
+      }
+    }
     if (payload.type==='CT_EDITOR_APPEND'||payload.type==='CT_EDITOR_COMPLETE') {
       const action=payload.type==='CT_EDITOR_APPEND'?'append':'complete';
       bridge(action,payload.char).then(sendResponse).catch(error=>sendResponse({ok:false,error:error.message}));

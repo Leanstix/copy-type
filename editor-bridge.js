@@ -6,6 +6,16 @@
   const normalize = (text) => text.replace(/\r\n?/g, "\n");
   const isCallable = (value) => typeof value === "function";
 
+  function focusedElement() {
+    let element = root.document.activeElement;
+    while (element) {
+      const inner = element.shadowRoot?.activeElement ?? element.contentDocument?.activeElement;
+      if (!inner) break;
+      element = inner;
+    }
+    return element;
+  }
+
   function findAdapter(element) {
     if (!element || !isCallable(element.closest)) return null;
     const aceEl = element.closest(".ace_editor");
@@ -54,7 +64,7 @@
       return {
         kind: "CodeMirror 5",
         readOnly: () => cm5.getOption?.("readOnly"),
-        lineBreak: () => cm5.getDoc?.().lineSeparator(),
+        lineBreak: () => cm5.getDoc?.().lineSeparator?.(),
         read: () => cm5.getValue(),
         selection: () => [
           cm5.indexFromPos(cm5.getCursor("from")),
@@ -211,7 +221,9 @@
     const reply = { id, token, ok: true };
     try {
       if (action === "init") {
-        const adapter = findAdapter(event.target);
+        // DOM elements cannot be serialized across the extension and page worlds.
+        const target = event.target === root ? focusedElement() : event.target;
+        const adapter = findAdapter(target);
         if (!adapter) {
           reply.kind = "browser-input";
           reply.supported = false;
