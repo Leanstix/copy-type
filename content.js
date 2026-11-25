@@ -3,13 +3,16 @@
   'use strict';
   if (globalThis.__copyTypeReady) return;
   globalThis.__copyTypeReady = true;
+  const embedded = window.top !== window;
   let status = 'idle';
   let selectionRoot = null;
   let editorToken = '';
+  let queueId = null;
+  let embeddedAccess = false;
   let host, root, message, progress, pauseButton;
   const trackedDocuments = new WeakSet();
   const pending = new Map();
-  const send = (type, reason) => chrome.runtime.sendMessage({type, reason});
+  const send = (type, reason) => chrome.runtime.sendMessage({type, reason, queueId});
   const editors = [
     ['.monaco-editor', 'Monaco'],
     ['.ace_editor', 'Ace'],
@@ -63,7 +66,8 @@
   }
 
   function targetHasFocus() {
-    return selectionRoot?.isConnected && eligible(activeElement()) === selectionRoot;
+    return (!embedded || document.hasFocus()) &&
+      selectionRoot?.isConnected && eligible(activeElement()) === selectionRoot;
   }
 
   function bridge(action, char) {
@@ -102,7 +106,12 @@
     root.getElementById('cancel').addEventListener('click', () => send('CANCEL'));
   }
   function show(state, detail = '') {
-    status = state;setup();host.style.display='block';
+    status = state;
+    if (embedded && (state === 'typing' || !detail)) {
+      if (host) host.style.display = 'none';
+      return;
+    }
+    setup();host.style.display='block';
     message.textContent = detail || ({armed:'Click the editor where typing should begin.',typing:'Entering exact text…',paused:'Paused.',done:'Finished and verified.',error:'Typing stopped.',cancelled:'Cancelled.'}[state] || '');
     pauseButton.style.display = ['typing','paused'].includes(state) ? 'block' : 'none';
     pauseButton.textContent = state==='paused'?'Resume':'Pause';
@@ -150,13 +159,13 @@
         show('armed', 'The editor lost focus. Click inside it to try again.');
         return;
       }
-      const response = await chrome.runtime.sendMessage({type:'START',native:!!kind.supported,codeEditor});
+      const response = await chrome.runtime.sendMessage({type:'START',native:!!kind.supported,codeEditor,queueId});
       if (status !== 'starting' || editorToken !== token) return;
       if (!response?.ok) throw new Error(response?.error || 'Could not start typing');
       diagnose('editor-selected', {
         editor: targetKind(active),
         method: kind.supported ? 'editor-model' : 'browser-input',
-        frame: active.ownerDocument === document ? 'top' : 'iframe',
+        frame: embedded || active.ownerDocument !== document ? 'iframe' : 'top',
       });
       show('typing',kind.supported?`Exact mode: ${kind.kind}.`:'Browser text entry (verification depends on editor).');
     } catch (error) {
@@ -167,7 +176,7 @@
     }
   }
   function onFocus(event) {
-    if (!['typing','paused'].includes(status) || event.composedPath().includes(host)) return;
+    if (!selectionRoot || !['typing','paused'].includes(status) || event.composedPath().includes(host)) return;
     if (!targetHasFocus()) {
       diagnose('focus-changed');
       send('CANCEL', 'focus-changed');
@@ -181,11 +190,11 @@
     }
   }
   function warnIfFocusedFrameIsUnavailable(doc) {
-    if (status !== 'armed') return;
+    if (status !== 'armed' || embeddedAccess) return;
     const active = activeElement(doc);
     if (!active?.matches?.(frameSelector) || active.contentDocument) return;
     diagnose('frame-unavailable');
-    show('armed', 'CopyType cannot access the focused embedded frame.');
+    show('armed', 'CopyType cannot access the focused embedded frame. Use Embedded editor access or a standalone editor link.');
   }
   function trackDocument(doc, frames) {
     if (!trackedDocuments.has(doc)) {
@@ -211,7 +220,10 @@
   // Switching tabs leaves this job running in its original tab. The worker
   // targets that tab ID; visibility is not a request to pause the job.
   chrome.runtime.onMessage.addListener((payload, sender, sendResponse) => {
+    if (['CT_STATE','CT_PROGRESS'].includes(payload.type) && payload.queueId && payload.queueId !== queueId) return;
     if (payload.type==='CT_ARMED') {
+      queueId = payload.queueId ?? null;
+      embeddedAccess = payload.embeddedAccess === true;
       editorToken = '';
       selectionRoot = null;
       if (progress) progress.value = 0;
@@ -221,6 +233,13 @@
       show('armed');
       warnIfFocusedFrameIsUnavailable(document);
     }
+    if (payload.type==='CT_DISARMED' && payload.queueId === queueId) {
+      if (selectionRoot?.matches(editorSelector)) void bridge('cancel').catch(() => {});
+      selectionRoot = null;
+      queueId = null;
+      status = 'idle';
+      if (host) host.style.display = 'none';
+    }
     if (payload.type==='CT_STATE') {
       if (payload.status==='done'||payload.status==='error'||payload.status==='cancelled') {
         diagnose('finished', {status:payload.status, verified:payload.verified === true});
@@ -229,7 +248,7 @@
       }
       show(payload.status,payload.message||'');
     }
-    if (payload.type==='CT_PROGRESS') {progress.value=payload.percent;message.textContent=`${payload.done.toLocaleString()} / ${payload.total.toLocaleString()} characters`;}
+    if (payload.type==='CT_PROGRESS' && progress) {progress.value=payload.percent;message.textContent=`${payload.done.toLocaleString()} / ${payload.total.toLocaleString()} characters`;}
     if (['CT_CHECK_TARGET','CT_EDITOR_APPEND','CT_EDITOR_COMPLETE'].includes(payload.type)) {
       if (!targetHasFocus()) {
         diagnose('target-unavailable', {reason:'focus-changed-or-target-removed'});

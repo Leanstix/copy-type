@@ -34,8 +34,10 @@ function contentHarness() {
     }
   }
   const document = {hidden: false, addEventListener, createElement: () => new Element(), documentElement: new Element(), querySelectorAll: () => []};
+  const window = {addEventListener, dispatchEvent: Element.prototype.dispatchEvent};
+  window.top = window;
   vm.runInNewContext(readFileSync(require.resolve('../content.js'), 'utf8'), {
-    document, window: {addEventListener, dispatchEvent: Element.prototype.dispatchEvent},
+    document, window,
     crypto: {randomUUID: () => 'test-id'},
     CustomEvent: class { constructor(type, options) { this.detail = options.detail; } },
     setTimeout: handler => { timers.push(handler); return handler; }, clearTimeout() {},

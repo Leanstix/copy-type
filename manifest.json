@@ -11,6 +11,12 @@
     "storage",
     "debugger"
   ],
+  "optional_permissions": ["webNavigation"],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
   "action": {
     "default_title": "CopyType \u2014 code & browser",
     "default_popup": "popup.html"
