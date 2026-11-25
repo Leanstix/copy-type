@@ -71,6 +71,17 @@ cancel.addEventListener("click", async () => {
     $("alert").textContent = error.message;
   }
 });
+$("standalone-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const status = $("standalone-status");
+  try {
+    const url = CopyTypeBrowser.editorAddress($("standalone-url").value);
+    await chrome.tabs.create({url:url.href});
+    window.close();
+  } catch (error) {
+    status.textContent = error.message;
+  }
+});
 init();
 
 // Switch between code entry and the browser preview without opening a new window.

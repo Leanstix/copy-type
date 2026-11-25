@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {resolveInput, SHORTCUTS} = require('../browser-utils.js');
+const {resolveInput, editorAddress, SHORTCUTS} = require('../browser-utils.js');
 test('empty input opens just the workspace', () => assert.equal(resolveInput('  '), null));
 test('search terms are escaped', () => assert.equal(resolveInput('C++ vector & maps'), 'https://www.google.com/search?q=C%2B%2B%20vector%20%26%20maps'));
 test('domain names gain https', () => assert.equal(resolveInput('chatgpt.com'), 'https://chatgpt.com/'));
@@ -13,3 +13,12 @@ test('URLs with credentials are rejected', () => assert.throws(() => resolveInpu
 test('too long inputs are rejected', () => assert.throws(() => resolveInput('a'.repeat(2049)), /too long/));
 test('shortcut targets are HTTPS', () => { for (const url of Object.values(SHORTCUTS)) assert.match(url, /^https:\/\//); });
 test('bare localhost port uses http for development', () => assert.equal(resolveInput('localhost:5173'), 'http://localhost:5173/'));
+test('standalone editor links preserve the provider URL and local editor ports', () => {
+  assert.equal(editorAddress('https://ide.example.com/workspace?test=1#file').href, 'https://ide.example.com/workspace?test=1#file');
+  assert.equal(editorAddress('http://127.0.0.1:8000/editor').origin, 'http://127.0.0.1:8000');
+});
+test('standalone editor links require an explicit web address without credentials', () => {
+  for (const input of ['ide.example.com', 'javascript:alert(1)', 'file:///tmp/file', 'https://user:pass@example.com']) {
+    assert.throws(() => editorAddress(input));
+  }
+});

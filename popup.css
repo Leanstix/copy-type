@@ -28,3 +28,10 @@ body.is-browser header{margin-bottom:12px}
    instead of shrinking an entire 720px webpage into a tiny thumbnail. */
 #browser-viewport{height:375px;display:flex;align-items:flex-start;justify-content:center}
 #browser-screen{width:440px;height:720px;min-height:720px;max-height:none;max-width:none;object-fit:fill;flex:none}
+
+.editor-options{border-top:1px solid #293347;margin-top:14px;padding-top:10px}
+.editor-options summary{cursor:pointer;color:#c7d1e4}
+.editor-form{margin-top:10px}
+.editor-form label{font-size:11px;margin-bottom:5px}
+.editor-form input{display:block;width:100%;color:#e8edf7;background:#171f2e;border:1px solid #364258;border-radius:8px;padding:9px;font:12px system-ui}
+.editor-form + .hint{margin-bottom:0}

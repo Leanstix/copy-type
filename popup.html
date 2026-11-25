@@ -64,6 +64,15 @@
         <button id="cancel" class="secondary" hidden>
           Cancel current task
         </button>
+        <details class="editor-options">
+          <summary>Standalone editor</summary>
+          <form id="standalone-form" class="editor-form">
+            <label for="standalone-url">Direct IDE link from the workspace provider</label>
+            <input id="standalone-url" type="url" placeholder="https://editor.example.com/" autocomplete="off" spellcheck="false" maxlength="2048" required />
+            <button class="secondary" type="submit">Open editor in a new tab</button>
+          </form>
+          <p id="standalone-status" role="status" class="hint"></p>
+        </details>
       </section>
       <section id="browser-panel" class="panel" hidden>
         <div class="browser-heading">

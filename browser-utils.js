@@ -27,6 +27,15 @@ const CopyTypeBrowser = (() => {
     if (!['https:','http:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('Unsupported or unsafe address.');
     return parsed.href;
   }
-  return Object.freeze({resolveInput, SHORTCUTS, MAX_INPUT});
+  function editorAddress(value) {
+    const input = typeof value === 'string' ? value.trim() : '';
+    if (!/^https?:\/\//i.test(input) || input.length > MAX_INPUT) {
+      throw new Error('Enter a complete HTTP or HTTPS editor link.');
+    }
+    const url = new URL(input);
+    if (url.username || url.password) throw new Error('Use an editor link without embedded credentials.');
+    return url;
+  }
+  return Object.freeze({resolveInput, editorAddress, SHORTCUTS, MAX_INPUT});
 })();
 if (typeof module !== 'undefined') module.exports = CopyTypeBrowser;
