@@ -36,11 +36,15 @@ After selecting the editor and starting, you can switch to another tab; CopyType
 
 The popup estimates the total time before you start. Inputs under 1,800 characters target about 7.5 characters per second. From 1,800 characters upward, the default target is **around five minutes**, unless the input would require going faster than 12 characters/sec; then it takes longer. Individual delays vary modestly, including at newlines and punctuation.
 
-### Exact code-editor support
+### Supported editors
 
-**New in v1.1.0:** CopyType detects Ace, CodeMirror 5/6, and Monaco when the page exposes a usable editor instance. It inserts characters into the editor's document model at the clicked caret position, avoiding automatic bracket pairs, indentation, and editor-typed formatting. When complete, it reads the editor document back and verifies the result against the exact source (normalizing CRLF). If a supported editor plugin changes the content, it repairs the document to the expected contents while keeping the original text outside the selected range. A verification error is displayed if that fails.
+CopyType detects **Monaco, CodeMirror 5, CodeMirror 6, and Ace**. When the page exposes its editor instance, CopyType edits the document model at the caret or replaces the selection. It preserves the model's line endings and verifies the resulting text.
 
-Native editor APIs are not exposed by every site or editor version. **If exact editor support is unavailable, CopyType falls back to browser text input; that fallback is not guaranteed to reproduce the source exactly.** Review the resulting code before submitting. Brave/Chromium may still display the debugger notice; typing rate is unchanged.
+CopyType uses browser text input for **HTML textareas, contenteditable fields, and rich-text editors** such as Tiptap. It also uses this path when a code editor's model is unavailable. The page's own formatting rules apply, so check the result in the editor when the widget reports that it finished sending browser input.
+
+You can click into editors in same-origin iframes, including nested frames and dynamically loaded frames. CopyType stops when the selected editor loses focus to another field or is removed.
+
+For diagnostics, open the page's **DevTools → Console**, enable **Verbose**, and filter for `[CopyType]`. The log shows the detected editor, input method, frame, focus changes, and verification status. It excludes the queued text and editor contents.
 
 ## In-extension browser preview (v1.3.0)
 
@@ -72,8 +76,8 @@ Native editor APIs are not exposed by every site or editor version. **If exact e
 
 ## Development
 
-No build step or npm packages required. Run `npm test` and `npm run check` with Node.js 18+; use `python tests/browser_workspace.py` for a Chromium UI smoke test with mocked extension APIs when Playwright and Chromium are available. To test the editor bridge in headless Chrome with Playwright installed, run `python tests/browser_bridge.py`.
+No build step or npm packages are required. Run `npm test` and `npm run check` with Node.js 18+. With Playwright and Chromium installed, run `python tests/browser_workspace.py` for the popup smoke test or `python tests/browser_bridge.py` for the cross-world editor bridge in an iframe. Set `COPYTYPE_CHROMIUM` to use a different Chromium binary for the bridge test.
 
 ## Security
 
-The extension never reads code from webpages. Only the text explicitly entered in the popup is queued. It does not submit forms or read clipboard contents automatically. The code is not collected by a service, though—as with any text you enter into a website—the website itself can observe the input.
+CopyType reads the selected code editor's document model locally when verifying a model edit. The queue contains only text entered in the popup. CopyType does not submit forms, read the clipboard automatically, or transmit the text to a service. The destination website can observe the input it receives.
