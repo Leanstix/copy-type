@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 function contentHarness() {
   const listeners = new Map(), messages = [], timers = [];
-  let receive;
+  let receive, widgetMessage;
   const addEventListener = (type, handler) => {
     if (!listeners.has(type)) listeners.set(type, []);
     listeners.get(type).push(handler);
@@ -22,6 +22,7 @@ function contentHarness() {
       const elements = new Map();
       return {append() {}, addEventListener() {}, getElementById(id) {
         if (!elements.has(id)) elements.set(id, new Element());
+        if (id === 'message') widgetMessage = elements.get(id);
         return elements.get(id);
       }};
     }
@@ -45,6 +46,7 @@ function contentHarness() {
   });
   const runTimer = () => timers.shift()();
   return {document, messages, emit, receive: payload => receive(payload), Element, runTimer,
+    widgetText: () => widgetMessage.textContent,
     start: async () => {
       receive({type: 'CT_ARMED'});
       const target = new Element();
@@ -98,4 +100,30 @@ test('a trusted click inside an accessible frame selects its focused editor', as
   h.runTimer();
   await start;
   assert.equal(h.messages[0].type, 'START');
+});
+
+test('a click on a VS Code workbench without an editable target keeps the queue armed', async () => {
+  const h = contentHarness();
+  h.receive({type:'CT_ARMED'});
+  const workbench = {matches: selector => selector === '.monaco-workbench'};
+  h.emit('click', {isTrusted:true, composedPath:() => [workbench]});
+  assert.match(h.widgetText(), /Open a writable source file/);
+  assert.equal(h.messages.length, 0);
+
+  const editor = new h.Element();
+  h.document.activeElement = editor;
+  h.emit('click', {isTrusted:true, composedPath:() => [editor, workbench]});
+  h.runTimer();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.messages[0].type, 'START');
+});
+
+test('a focused frame without an accessible document explains why typing is waiting', () => {
+  const h = contentHarness();
+  const frame = {matches: selector => selector === 'iframe, frame', contentDocument:null};
+  h.document.activeElement = frame;
+  h.document.querySelectorAll = () => [frame];
+  h.receive({type:'CT_ARMED'});
+  assert.match(h.widgetText(), /cannot access the focused embedded frame/);
+  assert.equal(h.messages.length, 0);
 });

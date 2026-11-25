@@ -17,6 +17,7 @@
     ['.cm-editor', 'CodeMirror 6'],
   ];
   const editorSelector = editors.map(([selector]) => selector).join(', ');
+  const frameSelector = 'iframe, frame';
   const diagnose = (event, details = {}) => console.debug('[CopyType]', event, details);
 
   function targetKind(element) {
@@ -116,7 +117,9 @@
     if (path.includes(host)) return;
     const candidate = path.map(eligible).find(Boolean);
     if (!candidate) {
-      diagnose('click-ignored', {reason:'no-editable-target'});
+      const workbench = path.some(node => node.matches?.('.monaco-workbench'));
+      diagnose('click-ignored', {reason:workbench ? 'workbench-chrome' : 'no-editable-target'});
+      if (workbench) show('armed', 'Open a writable source file, then click inside the code pane.');
       return;
     }
     const token = crypto.randomUUID();
@@ -177,21 +180,33 @@
       send('CANCEL');
     }
   }
-  function trackDocument(doc) {
-    if (!doc) return 0;
+  function warnIfFocusedFrameIsUnavailable(doc) {
+    if (status !== 'armed') return;
+    const active = activeElement(doc);
+    if (!active?.matches?.(frameSelector) || active.contentDocument) return;
+    diagnose('frame-unavailable');
+    show('armed', 'CopyType cannot access the focused embedded frame.');
+  }
+  function trackDocument(doc, frames) {
     if (!trackedDocuments.has(doc)) {
       trackedDocuments.add(doc);
       doc.addEventListener('click', onClick, true);
       doc.addEventListener('focusin', onFocus, true);
       doc.addEventListener('keydown', onKeydown, true);
       doc.addEventListener('load', event => {
-        if (event.target.matches?.('iframe, frame')) trackDocument(event.target.contentDocument);
+        if (event.target.matches?.(frameSelector) && event.target.contentDocument) {
+          trackDocument(event.target.contentDocument);
+        }
       }, true);
+      doc.defaultView?.addEventListener('blur', () => {
+        if (status === 'armed') setTimeout(() => warnIfFocusedFrameIsUnavailable(doc), 0);
+      });
     }
-    // contentDocument is null when Chromium denies access to the frame.
-    let count = 1;
-    for (const frame of doc.querySelectorAll('iframe, frame')) count += trackDocument(frame.contentDocument);
-    return count;
+    for (const frame of doc.querySelectorAll(frameSelector)) {
+      const child = frame.contentDocument;
+      if (frames) frames[child ? 'accessibleFrames' : 'unavailableFrames']++;
+      if (child) trackDocument(child, frames);
+    }
   }
   // Switching tabs leaves this job running in its original tab. The worker
   // targets that tab ID; visibility is not a request to pause the job.
@@ -200,9 +215,11 @@
       editorToken = '';
       selectionRoot = null;
       if (progress) progress.value = 0;
-      const accessibleFrames = trackDocument(document) - 1;
-      diagnose('armed', {accessibleFrames});
+      const frames = {accessibleFrames:0, unavailableFrames:0};
+      trackDocument(document, frames);
+      diagnose('armed', frames);
       show('armed');
+      warnIfFocusedFrameIsUnavailable(document);
     }
     if (payload.type==='CT_STATE') {
       if (payload.status==='done'||payload.status==='error'||payload.status==='cancelled') {
