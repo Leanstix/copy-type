@@ -44,6 +44,16 @@ CopyType uses browser text input for **HTML textareas, contenteditable fields, a
 
 You can click into editors in same-origin iframes, including nested frames and dynamically loaded frames. CopyType stops when the selected editor loses focus to another field or is removed.
 
+#### Editors hosted on a separate origin
+
+1. Open the workspace and click inside its editor.
+2. In CopyType, expand **Embedded editor access** and select **Use focused frame**, or enter the editor's origin yourself. An origin contains the scheme, hostname, and any port.
+3. Enter your text, select **Confirm**, and approve the browser prompt. Click inside the editor again to begin.
+
+CopyType targets only the selected origin in the current tab. If the workspace reloads the embedded document, confirm again. Embedded tasks stop when the frame loses focus.
+
+For an isolated sandbox, expand **Standalone editor** and enter the direct IDE link provided by the workspace owner. Select **Open editor in a new tab**, then activate CopyType in the new tab. This path requires a provider-issued link.
+
 For diagnostics, open the page's **DevTools → Console**, enable **Verbose**, and filter for `[CopyType]`. The log shows the detected editor, input method, frame, focus changes, and verification status. It excludes the queued text and editor contents.
 
 ## In-extension browser preview (v1.3.0)
@@ -70,7 +80,8 @@ For diagnostics, open the page's **DevTools → Console**, enable **Verbose**, a
 - `activeTab` / `scripting`: install the small click detector only after you activate the extension, and only in that tab.
 - `debugger`: ask Chrome to deliver text/key events at the browser input layer. Brave/Chromium **may show an "is debugging this browser" notice** while this permission is in use. Chrome DevTools can interrupt the session. The extension detaches after completion/cancellation.
 - `storage`: hold one queued code sample temporarily in **session storage** until it is entered or cancelled, and store browser preview state only in memory. No data is sent to a server or persisted in `sync` / `local` storage.
-- No `cookies`, `history`, `<all_urls>`, screen capture, or extra host permissions are requested. The background tab uses your browser's existing cookies natively.
+- **Embedded editor access** requests the selected host and the optional `webNavigation` permission to locate the frame in the current tab. Brave may describe the latter as access to browsing history. CopyType uses it to find live frames during confirmation. Browser site-access settings control the granted host permissions.
+- The background tab uses your browser's existing cookies natively. CopyType has no cookie or screen-capture permission.
 
 **Code-entry limitations:** Only ordinary HTTP(S) pages. No browser-internal pages (such as `brave://` or `chrome://`), Chrome Web Store pages, PDF viewers, or browser-protected pages. Some sandboxed/cross-origin iframes and web applications with custom input handling may not work. A website can detect or block automated input; this extension does not guarantee that any page will accept the result. Code-entry accuracy should be verified before submission. Do not use it where contest or site rules prohibit automated input.
 

@@ -64,6 +64,15 @@
         <button id="cancel" class="secondary" hidden>
           Cancel current task
         </button>
+        <details id="embedded-options" class="editor-options">
+          <summary>Embedded editor access</summary>
+          <div class="editor-form">
+            <label for="editor-origin">Trusted editor origin (optional)</label>
+            <input id="editor-origin" type="url" placeholder="https://editor.example.com" autocomplete="off" spellcheck="false" maxlength="2048" />
+            <button id="detect-frame" class="secondary" type="button">Use focused frame</button>
+          </div>
+          <p id="embedded-status" class="hint" role="status">Confirm requests access to this host and permission to find its frame.</p>
+        </details>
         <details class="editor-options">
           <summary>Standalone editor</summary>
           <form id="standalone-form" class="editor-form">
@@ -156,6 +165,7 @@
     </main>
     <script src="timing.js"></script>
     <script src="browser-utils.js"></script>
+    <script src="embedded-editor.js"></script>
     <script src="popup.js"></script>
     <script src="viewer-ui.js"></script>
   </body>

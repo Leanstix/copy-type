@@ -48,11 +48,22 @@ confirm.addEventListener("click", async () => {
   confirm.disabled = true;
   $("alert").textContent = "";
   try {
+    let editorOrigin;
+    const value = $("editor-origin").value.trim();
+    if (value) {
+      const address = CopyTypeBrowser.editorAddress(value);
+      const permissions = CopyTypeEmbedded.permission(address);
+      if (!await chrome.permissions.request(permissions)) {
+        throw new Error("Embedded editor access was declined.");
+      }
+      editorOrigin = address.origin;
+    }
     const result = await send({
       type: "ARM",
       tabId,
       text: source.value,
       mode: $("mode").value,
+      editorOrigin,
     });
     if (!result?.ok) throw new Error(result?.error || "Unable to arm typing.");
     source.value = ""; // do not keep an extra copy in the popup
@@ -60,6 +71,30 @@ confirm.addEventListener("click", async () => {
   } catch (error) {
     $("alert").textContent = error.message || "Failed to queue text.";
     updateEstimate();
+  }
+});
+$("detect-frame").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const status = $("embedded-status");
+  button.disabled = true;
+  try {
+    const [frame] = await chrome.scripting.executeScript({
+      target:{tabId},
+      func:CopyTypeEmbedded.focusedFrame,
+    });
+    if (frame?.result?.sandboxed) {
+      $("editor-origin").value = "";
+      status.textContent = "This iframe uses an isolated origin. Use a provider-issued standalone editor link.";
+    } else if (frame?.result?.origin) {
+      $("editor-origin").value = frame.result.origin;
+      status.textContent = "Check the origin, then confirm to approve access.";
+    } else {
+      status.textContent = "Click inside the embedded editor first, or enter its origin.";
+    }
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
   }
 });
 cancel.addEventListener("click", async () => {
