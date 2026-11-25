@@ -51,4 +51,4 @@ if ! sandbox_is_configured; then
   fi
 fi
 
-exec npm start
+exec npm start -- "$@"

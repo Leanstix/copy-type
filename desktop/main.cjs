@@ -6,12 +6,13 @@ const {resolveInput,validateURL}=require('./navigation.cjs');
 const {makeTabState}=require('./tab-state.cjs');
 const {TypingController}=require('./typing.cjs');
 const {LocalBridge,AccessibilityBridge}=require('./local-bridge.cjs');
-const {KdeShortcuts,toggleWindow}=require('./window-shortcuts.cjs');
+const {KdeShortcuts,showWindow,toggleWindow}=require('./window-shortcuts.cjs');
 const {configurePermissions}=require('./browser-permissions.cjs');
 const HOME=process.env.COPYTYPE_START_URL||'https://chatgpt.com/',BAR_HEIGHT=126,PARTITION='persist:copytype-mini-browser';
 const tabs=new Map(),model=makeTabState();
 const typing=new TypingController(),accessibility=new AccessibilityBridge(),browserTargets=new Map();
 let kdeShortcuts=null;
+let startHidden=false;
 let win=null,visibleId=null,siteSession=null,localBridge=null,panelOpen=false,selecting=false,selectionContents=null,preferredTarget=null;
 function destinations(){return [...browserTargets.values(),...(localBridge?.targets()||[]),...accessibility.targets()];}
 function snapshot(){return {activeId:model.activeId,panelOpen,selecting,preferredTarget,vscodeWindows:localBridge?.windows()||[],typing:{...typing.state,busy:!!typing.job},targets:destinations().map(({id,label,kind,windowId,active})=>({id,label,kind,windowId,active})),tabs:model.ids.map(id=>{const t=tabs.get(id),w=t.view.webContents;return {id,title:t.title||'New tab',url:w.getURL()||t.url,loading:w.isLoading(),canGoBack:w.navigationHistory.canGoBack(),canGoForward:w.navigationHistory.canGoForward()};})};}
@@ -126,8 +127,9 @@ function command({type,payload}){
 function createWindow(){
  siteSession=session.fromPartition(PARTITION,{cache:true});
  configurePermissions(siteSession,()=>({webContents:tabs.get(model.activeId)?.view.webContents,focused:!!win&&!win.isDestroyed()&&win.isFocused(),visible:!!win&&!win.isDestroyed()&&win.isVisible()}));
- win=new BrowserWindow({width:1120,height:780,minWidth:760,minHeight:540,title:'CopyType Mini Browser',backgroundColor:'#0c1220',autoHideMenuBar:true,
+ win=new BrowserWindow({width:1120,height:780,minWidth:760,minHeight:540,title:'CopyType Mini Browser',backgroundColor:'#0c1220',autoHideMenuBar:true,show:!startHidden,
   webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+ startHidden=false;
  Menu.setApplicationMenu(null);
  if(process.env.COPYTYPE_PRIVATE==='1')win.setSkipTaskbar(true);
  win.webContents.on('will-navigate',event=>event.preventDefault());
@@ -136,7 +138,7 @@ function createWindow(){
  win.on('closed',()=>{for(const t of tabs.values())if(!t.view.webContents.isDestroyed())t.view.webContents.close();tabs.clear();visibleId=null;win=null;});
  win.loadFile(path.join(__dirname,'index.html')).then(()=>{openTab(HOME);publish();});
 }
-if(!app.requestSingleInstanceLock())app.quit();
+if(!app.requestSingleInstanceLock({toggle:process.argv.includes('--toggle')}))app.quit();
 else app.whenReady().then(async()=>{
  localBridge=new LocalBridge();await localBridge.start();localBridge.on('targets',publish);
  if(process.env.COPYTYPE_PRIVATE==='1'){
@@ -144,7 +146,7 @@ else app.whenReady().then(async()=>{
   kdeShortcuts.on('action',action=>{if(action==='toggle')toggleWindow(win);else if(action==='cancel'&&typing.job)typing.control('cancel');});
   kdeShortcuts.on('disconnected',()=>{win?.show();win?.focus();typing.update({message:'KDE shortcut connection ended. Restart CopyType to reconnect.'});});
   await kdeShortcuts.start();
- }else{
+ }else if(process.env.COPYTYPE_GNOME_MONITOR_EXCLUSION!=='1'){
   globalShortcut.register('Control+Alt+Space',()=>toggleWindow(win));
   globalShortcut.register('Control+Alt+Backspace',()=>{if(typing.job)typing.control('cancel');});
  }
@@ -153,6 +155,11 @@ else app.whenReady().then(async()=>{
  ipcMain.handle('mini:typing',(event,args)=>{if(!win||event.sender!==win.webContents)throw Error('Unauthorized request.');return typingCommand(args||{});});
  createWindow();app.on('activate',()=>{if(!BrowserWindow.getAllWindows().length)createWindow();});
 }).catch(error=>{console.error(error.message);app.quit();});
-app.on('second-instance',()=>{if(win?.isMinimized())win.restore();win?.show();win?.focus();});
+app.on('second-instance',(_event,_args,_cwd,data)=>{
+ const toggle=data?.toggle===true;
+ if(!win){startHidden=toggle&&!startHidden;return;}
+ if(toggle)toggleWindow(win);
+ else showWindow(win);
+});
 app.on('before-quit',()=>{if(typing.job)typing.control('cancel');kdeShortcuts?.close();localBridge?.close();accessibility.close();globalShortcut.unregisterAll();});
 app.on('window-all-closed',()=>app.quit());

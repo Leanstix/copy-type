@@ -7,7 +7,14 @@ const {jsonLines} = require('./local-bridge.cjs');
 function toggleWindow(window) {
   if (!window || window.isDestroyed()) return;
   if (window.isVisible() && !window.isMinimized()) window.hide();
-  else { if (window.isMinimized()) window.restore(); window.show(); window.focus(); }
+  else showWindow(window);
+}
+
+function showWindow(window) {
+  if (!window || window.isDestroyed()) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
 }
 
 class KdeShortcuts extends EventEmitter {
@@ -33,4 +40,4 @@ class KdeShortcuts extends EventEmitter {
   }
   close() { this.stopping = true; this.child?.kill(); }
 }
-module.exports = {KdeShortcuts, toggleWindow};
+module.exports = {KdeShortcuts, showWindow, toggleWindow};

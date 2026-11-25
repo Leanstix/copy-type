@@ -54,9 +54,23 @@ Only approve this after installing Electron from a source you trust. Reinstallin
 
 Google OAuth and some other providers reject embedded Chromium authentication (`disallowed_useragent`). ChatGPT sign-in compatibility must be tested on your device; it cannot be guaranteed.
 
-By default, the application is an ordinary visible desktop window and appears in whole-screen recording or sharing. KDE Plasma Wayland offers an optional capture-exclusion path, described below. Inspect your recorder's live preview before relying on it.
+By default, the application is an ordinary visible desktop window and appears in whole-screen recording or sharing. The available privacy controls depend on your desktop and the capture source.
 
 There are no analytics, remote backends, or auto-read clipboard operations. Websites still receive the ordinary browser requests you send. The original CopyType typing extension remains in the project root.
+
+## Share a single window on Ubuntu GNOME
+
+Launch CopyType with `bash desktop/start-linux.sh`. In your meeting app or recorder, choose **Window** and select the destination window, such as VS Code or a separate browser window. You can keep using CopyType on the same display, even over the shared window. The shared feed contains the selected window and anything you type into it. Check the live preview for the source you selected.
+
+Stock GNOME's **Screen** source captures CopyType whenever its window is visible on the selected display. To share multiple windows while keeping CopyType visible locally, share a separate display in **Join Displays** mode and leave CopyType on the unshared display. With a single display and whole-screen sharing, hide CopyType before sharing and stop sharing before showing it again. A running job can continue typing into a pinned destination while CopyType is hidden. The [Mutter experiment](gnome/README.md) builds a separate whole-monitor frame that omits CopyType.
+
+To show or hide CopyType from another app, open GNOME **Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts** and assign **Ctrl+Alt+Space** to the following command. Use the absolute path to your checkout.
+
+```bash
+bash /absolute/path/to/copy-type/desktop/start-linux.sh --toggle
+```
+
+The shortcut opens CopyType if it is closed. Run the normal launcher to show a hidden instance without toggling it.
 
 ## KDE Plasma capture exclusion
 

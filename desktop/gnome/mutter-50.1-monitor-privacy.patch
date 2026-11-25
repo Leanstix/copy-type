@@ -1,0 +1,322 @@
+--- a/clutter/clutter/clutter-actor.c
++++ b/clutter/clutter/clutter-actor.c
+@@ -729,6 +729,7 @@
+   guint has_paint_volume            : 1;
+   guint visible_paint_volume_valid  : 1;
+   guint in_clone_paint              : 1;
++  guint screen_cast_excluded        : 1;
+   guint transform_valid             : 1;
+   /* This is TRUE if anything has queued a redraw since we were last
+      painted. In this case effect_to_redraw will point to an effect
+@@ -3485,6 +3486,23 @@
+   return TRUE;
+ }
+ 
++void
++clutter_actor_set_screen_cast_excluded (ClutterActor *actor,
++                                        gboolean      excluded)
++{
++  if (actor->priv->screen_cast_excluded == !!excluded)
++    return;
++
++  actor->priv->screen_cast_excluded = !!excluded;
++  clutter_actor_queue_redraw (actor);
++}
++
++gboolean
++clutter_actor_is_screen_cast_excluded (ClutterActor *actor)
++{
++  return actor->priv->screen_cast_excluded;
++}
++
+ /**
+  * clutter_actor_paint:
+  * @self: A #ClutterActor
+@@ -3520,6 +3538,16 @@
+     return;
+ 
+   priv = self->priv;
++
++  /* Skip live window clones and widgets that use cached snapshots before
++   * running effects, which can reuse a texture from the local display paint. */
++  if ((clutter_paint_context_get_paint_flags (paint_context) &
++       CLUTTER_PAINT_FLAG_OMIT_PRIVATE_WINDOWS) &&
++      (priv->screen_cast_excluded ||
++       (priv->content &&
++        g_object_get_data (G_OBJECT (priv->content), "screen-cast-excluded"))))
++    return;
++
+   priv->propagated_one_redraw = FALSE;
+ 
+   /* It's an important optimization that we consider painting of
+--- a/clutter/clutter/clutter-mutter.h
++++ b/clutter/clutter/clutter-mutter.h
+@@ -81,6 +81,13 @@
+                                              CoglScanout      *scanout);
+ 
+ CLUTTER_EXPORT
++void clutter_actor_set_screen_cast_excluded (ClutterActor *actor,
++                                             gboolean      excluded);
++
++CLUTTER_EXPORT
++gboolean clutter_actor_is_screen_cast_excluded (ClutterActor *actor);
++
++CLUTTER_EXPORT
+ gboolean clutter_actor_has_damage (ClutterActor *actor);
+ 
+ CLUTTER_EXPORT
+--- a/clutter/clutter/clutter-paint-context.h
++++ b/clutter/clutter/clutter-paint-context.h
+@@ -34,6 +34,7 @@
+   CLUTTER_PAINT_FLAG_NO_CURSORS = 1 << 0,
+   CLUTTER_PAINT_FLAG_FORCE_CURSORS = 1 << 1,
+   CLUTTER_PAINT_FLAG_CLEAR = 1 << 2,
++  CLUTTER_PAINT_FLAG_OMIT_PRIVATE_WINDOWS = 1 << 3,
+ } ClutterPaintFlag;
+ 
+ #define CLUTTER_TYPE_PAINT_CONTEXT (clutter_paint_context_get_type ())
+--- a/clutter/clutter/clutter-stage.c
++++ b/clutter/clutter/clutter-stage.c
+@@ -2774,6 +2774,7 @@
+   CoglTexture *texture;
+   CoglOffscreen *offscreen;
+   g_autoptr (CoglFramebuffer) framebuffer = NULL;
++  ClutterContent *content;
+ 
+   texture_width = (int) roundf (rect->width * scale);
+   texture_height = (int) roundf (rect->height * scale);
+@@ -2801,8 +2802,16 @@
+                                       color_state,
+                                       paint_flags);
+ 
+-  return clutter_texture_content_new_from_texture (cogl_offscreen_get_texture (offscreen),
+-                                                   NULL);
++  content = clutter_texture_content_new_from_texture (
++    cogl_offscreen_get_texture (offscreen), NULL);
++
++  /* Stage snapshots can include private windows. Preserve the local
++   * screenshot preview without replaying its texture into a filtered stream. */
++  if (content && !(paint_flags & CLUTTER_PAINT_FLAG_OMIT_PRIVATE_WINDOWS))
++    g_object_set_data (G_OBJECT (content), "screen-cast-excluded",
++                       GINT_TO_POINTER (TRUE));
++
++  return content;
+ }
+ 
+ void
+--- a/data/dbus-interfaces/org.gnome.Mutter.ScreenCast.xml
++++ b/data/dbus-interfaces/org.gnome.Mutter.ScreenCast.xml
+@@ -38,6 +38,8 @@
+         @short_description: API version
+     -->
+     <property name="Version" type="i" access="read" />
++    <!-- A configured Wayland app ID excluded from monitor streams. -->
++    <property name="ExcludedAppId" type="s" access="read" />
+ 
+   </interface>
+ 
+--- a/src/backends/meta-screen-cast-monitor-stream-src.c
++++ b/src/backends/meta-screen-cast-monitor-stream-src.c
+@@ -35,6 +35,8 @@
+ #include "backends/meta-stage-private.h"
+ #include "clutter/clutter.h"
+ #include "clutter/clutter-mutter.h"
++#include "compositor/meta-window-actor-private.h"
++#include "meta/compositor.h"
+ #include "core/boxes-private.h"
+ #include "core/meta-debug-control-private.h"
+ 
+@@ -44,6 +46,7 @@
+ 
+   gboolean cursor_bitmap_invalid;
+   gboolean hw_cursor_inhibited;
++  MetaCompositor *privacy_compositor;
+ 
+   struct {
+     gboolean set;
+@@ -495,6 +498,16 @@
+   MetaScreenCastStream *stream;
+ 
+   stream = meta_screen_cast_stream_src_get_stream (src);
++
++  if (meta_window_actor_get_screen_cast_excluded_app_id ())
++    {
++      MetaContext *context = meta_backend_get_context (backend);
++      MetaDisplay *display = meta_context_get_display (context);
++
++      /* A full-screen private window must not skip compositing. */
++      monitor_src->privacy_compositor = meta_display_get_compositor (display);
++      meta_compositor_disable_unredirect (monitor_src->privacy_compositor);
++    }
+ 
+   switch (meta_screen_cast_stream_get_cursor_mode (stream))
+     {
+@@ -549,6 +562,12 @@
+     }
+   g_clear_pointer (&monitor_src->watches, g_list_free);
+ 
++  if (monitor_src->privacy_compositor)
++    {
++      meta_compositor_enable_unredirect (monitor_src->privacy_compositor);
++      monitor_src->privacy_compositor = NULL;
++    }
++
+   if (monitor_src->hw_cursor_inhibited)
+     uninhibit_hw_cursor (monitor_src);
+ 
+@@ -603,6 +622,8 @@
+     }
+ 
+   color_state = meta_screen_cast_stream_src_get_color_state (src);
++  if (monitor_src->privacy_compositor)
++    paint_flags |= CLUTTER_PAINT_FLAG_OMIT_PRIVATE_WINDOWS;
+ 
+   if (!clutter_stage_paint_to_buffer (stage, &logical_monitor->rect, scale,
+                                       data,
+@@ -722,7 +743,9 @@
+   else
+     view_scale = 1.0;
+ 
+-  if (paint_phase == META_SCREEN_CAST_PAINT_PHASE_DETACHED)
++  /* The scanout and framebuffer-copy paths contain the local image. */
++  if (monitor_src->privacy_compositor ||
++      paint_phase == META_SCREEN_CAST_PAINT_PHASE_DETACHED)
+     goto stage_paint;
+ 
+   outputs = meta_monitor_get_outputs (monitor);
+@@ -814,6 +837,9 @@
+       ClutterPaintFlag paint_flags = CLUTTER_PAINT_FLAG_CLEAR;
+       ClutterColorState *blending_color_state;
+       gboolean force_linear;
++
++      if (monitor_src->privacy_compositor)
++        paint_flags |= CLUTTER_PAINT_FLAG_OMIT_PRIVATE_WINDOWS;
+ 
+       switch (meta_screen_cast_stream_get_cursor_mode (stream))
+         {
+--- a/src/backends/meta-screen-cast.c
++++ b/src/backends/meta-screen-cast.c
+@@ -27,6 +27,7 @@
+ #include "backends/meta-backend-private.h"
+ #include "backends/meta-remote-desktop-session.h"
+ #include "backends/meta-screen-cast-session.h"
++#include "compositor/meta-window-actor-private.h"
+ 
+ #ifdef HAVE_NATIVE_BACKEND
+ #include "backends/native/meta-drm-buffer.h"
+@@ -346,6 +347,8 @@
+                     G_CALLBACK (handle_create_session), screen_cast);
+ 
+   meta_dbus_screen_cast_set_version (skeleton, META_SCREEN_CAST_API_VERSION);
++  meta_dbus_screen_cast_set_excluded_app_id (
++    skeleton, meta_window_actor_get_screen_cast_excluded_app_id () ?: "");
+ 
+   G_OBJECT_CLASS (meta_screen_cast_parent_class)->constructed (object);
+ }
+--- a/src/compositor/meta-cullable.c
++++ b/src/compositor/meta-cullable.c
+@@ -95,6 +95,12 @@
+         continue;
+ 
+       needs_culling = (region != NULL);
++
++      /* Keep updates from surfaces behind a private window eligible for
++       * repaint. Local redraw clipping still treats the window as opaque. */
++      if (method == meta_cullable_cull_unobscured &&
++          clutter_actor_is_screen_cast_excluded (child))
++        needs_culling = FALSE;
+ 
+       if (needs_culling && !clutter_actor_is_visible (child))
+         needs_culling = FALSE;
+--- a/src/compositor/meta-window-actor-private.h
++++ b/src/compositor/meta-window-actor-private.h
+@@ -43,6 +43,8 @@
+   META_WINDOW_ACTOR_CHANGE_SIZE     = 1 << 0,
+   META_WINDOW_ACTOR_CHANGE_POSITION = 1 << 1
+ } MetaWindowActorChanges;
++
++const char * meta_window_actor_get_screen_cast_excluded_app_id (void);
+ 
+ void meta_window_actor_queue_destroy   (MetaWindowActor *self);
+ 
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -24,6 +24,7 @@
+ #include <string.h>
+ 
+ #include "backends/meta-screen-cast-window.h"
++#include "clutter/clutter-mutter.h"
+ #include "compositor/compositor-private.h"
+ #include "compositor/meta-shaped-texture-private.h"
+ #include "compositor/meta-surface-actor.h"
+@@ -600,6 +601,27 @@
+   meta_compositor_window_actor_stage_views_changed (priv->compositor);
+ }
+ 
++const char *
++meta_window_actor_get_screen_cast_excluded_app_id (void)
++{
++  const char *app_id = g_getenv ("COPYTYPE_MUTTER_EXCLUDED_APP_ID");
++
++  return app_id && *app_id ? app_id : NULL;
++}
++
++static void
++update_screen_cast_exclusion (MetaWindow      *window,
++                              GParamSpec      *pspec,
++                              MetaWindowActor *actor)
++{
++  const char *excluded_app_id =
++    meta_window_actor_get_screen_cast_excluded_app_id ();
++
++  clutter_actor_set_screen_cast_excluded (
++    CLUTTER_ACTOR (actor),
++    g_strcmp0 (meta_window_get_wm_class (window), excluded_app_id) == 0);
++}
++
+ static void
+ meta_window_actor_constructed (GObject *object)
+ {
+@@ -620,6 +642,15 @@
+   meta_window_set_compositor_private (window, object);
+ 
+   init_surface_actor (self);
++
++  if (meta_window_actor_get_screen_cast_excluded_app_id () &&
++      meta_window_get_client_type (window) == META_WINDOW_CLIENT_TYPE_WAYLAND)
++    {
++      g_signal_connect_object (window, "notify::wm-class",
++                               G_CALLBACK (update_screen_cast_exclusion),
++                               self, 0);
++      update_screen_cast_exclusion (window, NULL, self);
++    }
+ 
+   meta_window_actor_update_opacity (self);
+ 
+@@ -1862,6 +1893,11 @@
+   texture = cogl_offscreen_get_texture (COGL_OFFSCREEN (framebuffer));
+   content = clutter_texture_content_new_from_texture (texture, NULL);
+ 
++  /* GNOME Shell draws this snapshot on a separate actor during resizing. */
++  if (content && clutter_actor_is_screen_cast_excluded (actor))
++    g_object_set_data (G_OBJECT (content), "screen-cast-excluded",
++                       GINT_TO_POINTER (TRUE));
++
+   g_object_unref (framebuffer);
+ 
+ out:
+--- a/src/compositor/meta-window-group.c
++++ b/src/compositor/meta-window-group.c
+@@ -61,6 +61,12 @@
+   const MtkRegion *redraw_clip;
+   g_autoptr (MtkRegion) clip_region = NULL;
+   graphene_matrix_t stage_to_actor;
++
++  /* The local occlusion geometry includes the excluded windows. Paint the
++   * capture pass without those clips so underlying content is drawn. */
++  if (clutter_paint_context_get_paint_flags (paint_context) &
++      CLUTTER_PAINT_FLAG_OMIT_PRIVATE_WINDOWS)
++    goto fail;
+ 
+   redraw_clip = clutter_paint_context_get_redraw_clip (paint_context);
+   if (!redraw_clip)

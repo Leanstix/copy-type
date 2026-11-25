@@ -23,7 +23,7 @@ function fixture(){
   fs.chmodSync(npm,0o755);
   return {
     dir,helper,log,
-    launch(){return spawnSync('bash',[path.join(dir,'start-linux.sh')],{
+    launch(...args){return spawnSync('bash',[path.join(dir,'start-linux.sh'),...args],{
       cwd:'/',encoding:'utf8',env:{...process.env,PATH:path.join(dir,'bin')+":"+process.env.PATH,COPYTYPE_TEST_LOG:log}
     });},
     calledNpm(){return fs.existsSync(log)?fs.readFileSync(log,'utf8'):'';},
@@ -74,6 +74,8 @@ test('correctly configured sandbox helper launches Electron without sudo', {skip
     fs.chmodSync(f.helper,0o4755);
     const r=f.launch();
     assert.equal(r.status,0,r.stderr);
-    assert.equal(f.calledNpm(),'start\n');
+    assert.equal(f.calledNpm(),'start --\n');
+    assert.equal(f.launch('--toggle').status,0);
+    assert.equal(f.calledNpm(),'start --\nstart -- --toggle\n');
   }finally{f.cleanup();}
 });
